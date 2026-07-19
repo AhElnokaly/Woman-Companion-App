@@ -32,7 +32,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build Release APK
-        run: ./gradlew assembleRelease
+        run: ./gradlew assembleRelease -Djava.awt.headless=true
 
       - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v4
