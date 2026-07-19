@@ -25,6 +25,9 @@ jobs:
       - name: Regenerate Gradle Wrapper
         run: gradle wrapper
 
+      - name: Configure Gradle Compiler Strategy for CI
+        run: sed -i 's/kotlin.compiler.execution.strategy=in-process/kotlin.compiler.execution.strategy=daemon/g' gradle.properties
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
