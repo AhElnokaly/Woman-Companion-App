@@ -1,0 +1,8 @@
+{
+  "name": "رفيق المرأة",
+  "description": "تطبيق متكامل لتتبع فترات الدورة الشهرية، الحمل، النفاس، التغذية، والعبادات بخصوصية تامة.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
