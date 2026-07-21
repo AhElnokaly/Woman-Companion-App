@@ -22,9 +22,6 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
-      - name: Regenerate Gradle Wrapper
-        run: gradle wrapper
-
       - name: Configure Gradle Compiler Strategy for CI
         run: sed -i 's/kotlin.compiler.execution.strategy=in-process/kotlin.compiler.execution.strategy=daemon/g' gradle.properties
 
