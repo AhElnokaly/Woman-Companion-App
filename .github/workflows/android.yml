@@ -24,7 +24,7 @@ jobs:
 
       - name: Download Valid Gradle Wrapper Jar
         run: |
-          curl -sS -L -O https://raw.githubusercontent.com/gradle/gradle/v8.7.0/gradle/wrapper/gradle-wrapper.jar
+          curl -sS -L -o https://raw.githubusercontent.com/gradle/gradle/v8.7.0/gradle/wrapper/gradle-wrapper.jar
           mv gradle-wrapper.jar gradle/wrapper/gradle-wrapper.jar
 
       - name: Grant execute permission for gradlew
