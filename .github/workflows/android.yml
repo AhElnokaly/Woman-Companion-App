@@ -1,10 +1,10 @@
-name: Android CI Build
+name: Build Android Debug APK
 
 on:
   push:
-    branches:
-      - main
-      - master
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
   workflow_dispatch:
 
 jobs:
@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout the code
+      - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
@@ -20,35 +20,19 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: 'gradle'
 
-      - name: Regenerate Gradle Wrapper
-        run: gradle wrapper
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
 
-      - name: Configure Gradle Compiler Strategy for CI
-        run: sed -i 's/kotlin.compiler.execution.strategy=in-process/kotlin.compiler.execution.strategy=daemon/g' gradle.properties
-
-      - name: Grant execute permission for gradlew
+      - name: Make Gradlew Executable
         run: chmod +x gradlew
 
-      - name: Build Release APK
-        env:
-          GRADLE_OPTS: "-Djava.awt.headless=true"
-        run: ./gradlew assembleRelease --stacktrace
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --stacktrace
 
-      - name: Sign Release APK
-        uses: r0adkll/sign-android-release@v1
-        id: sign_app
-        with:
-          releaseDirectory: app/build/outputs/apk/release
-          signingKeyBase64: ${{ secrets.SIGNING_KEY }}
-          alias: ${{ secrets.ALIAS }}
-          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
-          keyPassword: ${{ secrets.KEY_PASSWORD }}
-
-      - name: Upload Release APK Artifact
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-apk
-          path: ${{ steps.sign_app.outputs.signedReleaseFile }}
-          if-no-files-found: error
+          name: app-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 7
