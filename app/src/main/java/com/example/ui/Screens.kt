@@ -1,6 +1,7 @@
 package com.example.ui
 
 import com.example.BuildConfig
+import com.example.util.formatArabicDays
 
 import android.text.format.DateFormat
 import androidx.compose.animation.*
@@ -230,146 +231,7 @@ fun formatTime(timestamp: Long): String {
     return sdf.format(Date(timestamp))
 }
 
-// --- App Lock / PIN Screen ---
-@Composable
-fun AppLockScreen(
-    viewModel: WomanCompanionViewModel,
-    onSuccess: () -> Unit
-) {
-    val settings by viewModel.appLockSettingsState.collectAsStateWithLifecycle()
-    var pinInput by remember { mutableStateOf("") }
-    var showError by remember { mutableStateOf(false) }
-
-    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(SoftTheme.BackgroundBrush)
-                .padding(24.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Lock,
-                    contentDescription = "قفل التطبيق",
-                    tint = SoftTheme.SoftPink,
-                    modifier = Modifier.size(72.dp)
-                )
-
-                Text(
-                    text = "رفيق المرأة 🌸",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = SoftTheme.TextWhite,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Text(
-                    text = if (settings?.isStealthModeEnabled == true) "تأكيد الهوية للوصول" else "الرجاء إدخال رمز المرور PIN لحماية خصوصيتك",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = SoftTheme.SoftGray,
-                    textAlign = TextAlign.Center
-                )
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    repeat(4) { idx ->
-                        val active = idx < pinInput.length
-                        Box(
-                            modifier = Modifier
-                                .size(20.dp)
-                                .clip(CircleShape)
-                                .background(if (active) SoftTheme.SoftPink else SoftTheme.CardSlate)
-                                .border(1.dp, SoftTheme.SoftGray, CircleShape)
-                        )
-                    }
-                }
-
-                if (showError) {
-                    Text(
-                        text = "رمز PIN غير صحيح، يرجى المحاولة مرة أخرى",
-                        color = SoftTheme.RedDanger,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Custom keypad
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.width(280.dp)
-                ) {
-                    val rows = listOf(
-                        listOf("1", "2", "3"),
-                        listOf("4", "5", "6"),
-                        listOf("7", "8", "9"),
-                        listOf("مسح", "0", "موافق")
-                    )
-                    rows.forEach { row ->
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            row.forEach { char ->
-                                Button(
-                                    onClick = {
-                                        showError = false
-                                        when (char) {
-                                            "مسح" -> {
-                                                if (pinInput.isNotEmpty()) pinInput = pinInput.dropLast(1)
-                                            }
-                                            "موافق" -> {
-                                                if (viewModel.unlockApp(pinInput)) {
-                                                    onSuccess()
-                                                } else {
-                                                    showError = true
-                                                    pinInput = ""
-                                                }
-                                            }
-                                            else -> {
-                                                if (pinInput.length < 4) {
-                                                    pinInput += char
-                                                    if (pinInput.length == 4) {
-                                                        if (viewModel.unlockApp(pinInput)) {
-                                                            onSuccess()
-                                                        } else {
-                                                            showError = true
-                                                            pinInput = ""
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(60.dp)
-                                        .testTag("keypad_$char"),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = SoftTheme.CardSlate,
-                                        contentColor = SoftTheme.TextWhite
-                                    ),
-                                    shape = RoundedCornerShape(16.dp),
-                                    contentPadding = PaddingValues(0.dp)
-                                ) {
-                                    Text(
-                                        text = char,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
+// --- App Lock / PIN Screen moved to SettingsScreen.kt ---
 
 // +++ أضيف بناءً على طلبك لحساب تقدم الشهور الطبية للحمل +++
 data class MonthProgress(
@@ -424,6 +286,572 @@ fun calculateMonthProgress(weeks: Int, daysIntoWeek: Int): MonthProgress {
     val total = if (weeks >= 41) 10 else 9
     
     return MonthProgress(currentMonth, name, progressFraction, total)
+}
+
+// --- Exact Alarm Banner Card (Task C1) ---
+@Composable
+fun ExactAlarmBannerCard() {
+    val context = LocalContext.current
+    val alarmManager = remember { context.getSystemService(android.content.Context.ALARM_SERVICE) as? android.app.AlarmManager }
+    val canScheduleExact = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+        alarmManager?.canScheduleExactAlarms() ?: true
+    } else {
+        true
+    }
+
+    if (!canScheduleExact) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = SoftTheme.GoldFasting.copy(alpha = 0.15f)),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, SoftTheme.GoldFasting)
+        ) {
+            Row(
+                modifier = Modifier.padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("⚠️", fontSize = 22.sp)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "تنبيه الإشعارات والمنبهات الدقيقة ⏰",
+                        fontWeight = FontWeight.Bold,
+                        color = SoftTheme.TextWhite,
+                        fontSize = 13.sp
+                    )
+                    Text(
+                        "يرجى السماح بإذن المنبهات الدقيقة لضمان وصول تذكيرات الأدوية والمواعيد في وقتها المظبوط دون تأخير.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SoftTheme.SoftGray,
+                        lineHeight = 15.sp
+                    )
+                }
+                Button(
+                    onClick = {
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                            try {
+                                val intent = android.content.Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                                    data = android.net.Uri.parse("package:${context.packageName}")
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                val intent = android.content.Intent(android.provider.Settings.ACTION_SETTINGS)
+                                context.startActivity(intent)
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.GoldFasting),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text("تفعيل", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+// --- Daily Vitamins Checkoff Card (Task C2) ---
+@Composable
+fun DailyVitaminsCard(viewModel: WomanCompanionViewModel) {
+    val context = LocalContext.current
+    val todayDateStr = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()) }
+    val prefs = remember { context.getSharedPreferences("daily_meds_prefs", android.content.Context.MODE_PRIVATE) }
+
+    var folicChecked by remember { mutableStateOf(prefs.getBoolean("med_folic_$todayDateStr", false)) }
+    var ironChecked by remember { mutableStateOf(prefs.getBoolean("med_iron_$todayDateStr", false)) }
+    var calciumChecked by remember { mutableStateOf(prefs.getBoolean("med_calcium_$todayDateStr", false)) }
+    var multivitaminChecked by remember { mutableStateOf(prefs.getBoolean("med_multi_$todayDateStr", false)) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, SoftTheme.SoftPink.copy(alpha = 0.2f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("💊", fontSize = 22.sp)
+                    Text(
+                        "الفيتامينات والأدوية اليومية",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = SoftTheme.TextWhite
+                    )
+                }
+                val completedCount = listOf(folicChecked, ironChecked, calciumChecked, multivitaminChecked).count { it }
+                Text(
+                    "$completedCount / 4 مكتمل",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (completedCount == 4) SoftTheme.MintTeal else SoftTheme.SoftPink,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            val meds = listOf(
+                Triple("حمض الفولic (Folic Acid) 💊", folicChecked) { checked: Boolean ->
+                    folicChecked = checked
+                    prefs.edit().putBoolean("med_folic_$todayDateStr", checked).apply()
+                },
+                Triple("مكمل الحديد (Iron) 🩸", ironChecked) { checked: Boolean ->
+                    ironChecked = checked
+                    prefs.edit().putBoolean("med_iron_$todayDateStr", checked).apply()
+                },
+                Triple("الكالسيوم (Calcium) 🥛", calciumChecked) { checked: Boolean ->
+                    calciumChecked = checked
+                    prefs.edit().putBoolean("med_calcium_$todayDateStr", checked).apply()
+                },
+                Triple("فيتامينات الحمل المتكاملة 🌸", multivitaminChecked) { checked: Boolean ->
+                    multivitaminChecked = checked
+                    prefs.edit().putBoolean("med_multi_$todayDateStr", checked).apply()
+                }
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                meds.forEach { (name, isChecked, onCheckChange) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isChecked) SoftTheme.MintTeal.copy(alpha = 0.15f) else SoftTheme.DeepSlate)
+                            .clickable { onCheckChange(!isChecked) }
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            name,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (isChecked) SoftTheme.MintTeal else SoftTheme.TextWhite,
+                            fontWeight = if (isChecked) FontWeight.Bold else FontWeight.Normal
+                        )
+                        Checkbox(
+                            checked = isChecked,
+                            onCheckedChange = { onCheckChange(it) },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = SoftTheme.MintTeal,
+                                uncheckedColor = SoftTheme.SoftGray
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// --- Quick Craving Log Card (Task B8) ---
+@Composable
+fun QuickCravingLogCard(viewModel: WomanCompanionViewModel) {
+    val cravingLogs by viewModel.allCravingLogsState.collectAsStateWithLifecycle()
+    var cravingText by remember { mutableStateOf("") }
+    var selectedType by remember { mutableStateOf("Sweet") }
+    var intensity by remember { mutableStateOf(5f) }
+
+    val categories = listOf(
+        "Sweet" to "حلو 🍓",
+        "Sour" to "حامض 🍋",
+        "Salty" to "حادق 🥨",
+        "Spicy" to "حار 🌶️",
+        "Chocolate" to "شوكولاتة 🍫"
+    )
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, SoftTheme.SoftPink.copy(alpha = 0.2f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("🍓", fontSize = 22.sp)
+                    Text(
+                        "سجل الوحم والاشتهاء",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = SoftTheme.TextWhite
+                    )
+                }
+                Text(
+                    "اتوحمتِ على إيه؟",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SoftTheme.SoftPink,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            OutlinedTextField(
+                value = cravingText,
+                onValueChange = { cravingText = it },
+                placeholder = { Text("مثال: مانجو، شيكولاتة، مخلل...", color = SoftTheme.SoftGray, fontSize = 12.sp) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = SoftTheme.SoftPink,
+                    unfocusedBorderColor = SoftTheme.SoftGray.copy(alpha = 0.3f),
+                    focusedContainerColor = SoftTheme.DeepSlate,
+                    unfocusedContainerColor = SoftTheme.DeepSlate,
+                    focusedTextColor = SoftTheme.TextWhite,
+                    unfocusedTextColor = SoftTheme.TextWhite
+                ),
+                singleLine = true
+            )
+
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(categories) { (key, label) ->
+                    FilterChip(
+                        selected = selectedType == key,
+                        onClick = { selectedType = key },
+                        label = { Text(label, fontSize = 12.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = SoftTheme.SoftPink,
+                            selectedLabelColor = Color.White,
+                            containerColor = SoftTheme.DeepSlate,
+                            labelColor = SoftTheme.TextWhite
+                        )
+                    )
+                }
+            }
+
+            Button(
+                onClick = {
+                    if (cravingText.isNotBlank()) {
+                        viewModel.addCravingLog(
+                            cravingItem = cravingText.trim(),
+                            cravingType = selectedType,
+                            intensity = intensity.toInt(),
+                            notes = "مسجّل سريعا من الشاشة الرئيسية"
+                        )
+                        cravingText = ""
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = cravingText.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink)
+            ) {
+                Text("حفظ الوحم في سجل جوري ✍️", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+
+            if (cravingLogs.isNotEmpty()) {
+                Text("الوحم المسجل حديثاً:", style = MaterialTheme.typography.labelSmall, color = SoftTheme.SoftGray)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(cravingLogs.take(5)) { log ->
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(SoftTheme.DeepSlate)
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                "${log.cravingItem} (${log.intensity}/10)",
+                                fontSize = 11.sp,
+                                color = SoftTheme.MintTeal,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// --- AI Pregnancy Myth Buster Card (Task B7) ---
+@Composable
+fun PregnancyMythBusterCard(viewModel: WomanCompanionViewModel) {
+    var searchQuery by remember { mutableStateOf("") }
+    var userQuestion by remember { mutableStateOf("") }
+    var jouriAnswer by remember { mutableStateOf<String?>(null) }
+    var isAskingJouri by remember { mutableStateOf(false) }
+
+    val myths = remember {
+        listOf(
+            Triple("شرب الحليب البارد يسبب مغص للجنين؟", "❌ خرافة", "الحليب البارد آمن وممتع تماماً ولا يصل للجنين برودته لأن جسمك ينظم حرارة الطعام فور بلعه."),
+            Triple("شكل البطن يحدد نوع الجنين (ولد أو بنت)؟", "❌ خرافة", "شكل البطن يعتمد فقط على قوة عضلات بطنكِ، وضعية الجنين، وعدد مرات حملك السابقة وليس له علاقة بالنوع."),
+            Triple("استخدام صبغات الشعر ممنوع طوال الحمل؟", "⚠️ حقيقة جزئية", "يفضل تجنب الصبغات في الثلث الأول (أول 12 أسبوع) حمايةً لنمو الأعضاء، لكنها آمنة نسبيًا بعد ذلك بشرط تهوية المكان واستخدام أنواع خالية من الأمونيا."),
+            Triple("الحامل يجب أن تأكل عن شخصين؟", "❌ خرافة", "الحامل تحتاج فقط لـ 300 سعرة حرارية إضافية يومياً (كوب لبن وموزة) بدءاً من الثلث الثاني وليس مضاعفة الأكل!"),
+            Triple("تناول التمر يسبب الإجهاض في بداية الحمل؟", "❌ خرافة", "التمر غني بالألياف والحديد والسكريات الطبيعية وآمن باعتدال، ولكنه يفيد خصوصاً في الشهر الأخير لتسهيل الولادة."),
+            Triple("المجهود الخفيف والمشي يضر الحامل؟", "❌ خرافة", "المشي والنشاط الخفيف المعتدل يحسن الدورة الدموية، يقلل التورم، ويساعد على ولادة أسهل وأسرع.")
+        )
+    }
+
+    val filteredMyths = myths.filter {
+        searchQuery.isBlank() || it.first.contains(searchQuery) || it.third.contains(searchQuery)
+    }
+
+    val scope = rememberCoroutineScope()
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, SoftTheme.SoftPink.copy(alpha = 0.2f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("💡", fontSize = 22.sp)
+                Column {
+                    Text(
+                        "صندوق التساؤلات: خرافات وحقائق الشائعة",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = SoftTheme.TextWhite
+                    )
+                    Text("تصحيح المفاهيم الطبية الشائعة في المجتمع", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
+                }
+            }
+
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("ابحثي في خرافات الحمل والدورة...", color = SoftTheme.SoftGray, fontSize = 12.sp) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = SoftTheme.SoftPink,
+                    unfocusedBorderColor = SoftTheme.SoftGray.copy(alpha = 0.3f),
+                    focusedContainerColor = SoftTheme.DeepSlate,
+                    unfocusedContainerColor = SoftTheme.DeepSlate,
+                    focusedTextColor = SoftTheme.TextWhite,
+                    unfocusedTextColor = SoftTheme.TextWhite
+                ),
+                singleLine = true
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                filteredMyths.forEach { (question, verdict, explanation) ->
+                    var isExpanded by remember { mutableStateOf(false) }
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { isExpanded = !isExpanded },
+                        colors = CardDefaults.cardColors(containerColor = SoftTheme.DeepSlate),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(question, style = MaterialTheme.typography.bodyMedium, color = SoftTheme.TextWhite, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                                Text(verdict, style = MaterialTheme.typography.bodySmall, color = if (verdict.contains("خرافة")) SoftTheme.RedDanger else SoftTheme.GoldFasting, fontWeight = FontWeight.Bold)
+                            }
+                            AnimatedVisibility(visible = isExpanded) {
+                                Text(explanation, style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray, modifier = Modifier.padding(top = 4.dp))
+                            }
+                        }
+                    }
+                }
+            }
+
+            Divider(color = SoftTheme.DeepSlate, thickness = 1.dp)
+            Text("اسألي جوري عن أي خرافة أو إشاعة أخرى: 🔮", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftPink, fontWeight = FontWeight.Bold)
+
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = userQuestion,
+                    onValueChange = { userQuestion = it },
+                    placeholder = { Text("مثال: هل الاستحمام بماء دافئ يضر الدورة؟", color = SoftTheme.SoftGray, fontSize = 11.sp) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = SoftTheme.SoftPink,
+                        unfocusedBorderColor = SoftTheme.SoftGray.copy(alpha = 0.3f),
+                        focusedContainerColor = SoftTheme.DeepSlate,
+                        unfocusedContainerColor = SoftTheme.DeepSlate,
+                        focusedTextColor = SoftTheme.TextWhite,
+                        unfocusedTextColor = SoftTheme.TextWhite
+                    ),
+                    singleLine = true
+                )
+                Button(
+                    onClick = {
+                        if (userQuestion.isNotBlank()) {
+                            isAskingJouri = true
+                            scope.launch {
+                                val pregState = viewModel.pregnancyState.value
+                                val phaseInfo = viewModel.getCurrentCyclePhase()
+                                val waterLog = viewModel.todayWaterLogState.value?.amountMl ?: 0
+                                val resp = OfflineJouriEngine.getResponse(
+                                    userInput = userQuestion,
+                                    motherName = pregState?.motherName,
+                                    phaseInfo = phaseInfo,
+                                    pregnancyState = pregState,
+                                    todayWaterLogged = waterLog
+                                ).replyText
+                                jouriAnswer = resp
+                                isAskingJouri = false
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
+                    enabled = userQuestion.isNotBlank() && !isAskingJouri
+                ) {
+                    Text("سلي جوري", fontSize = 11.sp, color = Color.White)
+                }
+            }
+
+            if (jouriAnswer != null) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = SoftTheme.MintTeal.copy(alpha = 0.15f)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("🌸 رد جوري الطبّي:", fontWeight = FontWeight.Bold, color = SoftTheme.MintTeal, fontSize = 12.sp)
+                        Text(jouriAnswer!!, style = MaterialTheme.typography.bodySmall, color = SoftTheme.TextWhite)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// --- Egyptian Food Search Widget (Task B6) ---
+@Composable
+fun EgyptianFoodSearchWidget(viewModel: WomanCompanionViewModel) {
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf("all") }
+    val presetFoods = remember { EgyptianFoodRepository.presetFoods }
+
+    val categories = listOf(
+        "all" to "الكل 🥗",
+        "meal" to "وجبات 🥘",
+        "drink" to "مشروبات ☕",
+        "vegetable" to "خضروات 🥦",
+        "fruit" to "فواكه 🍎",
+        "snack" to "تسالي 🥨"
+    )
+
+    val filteredFoods = remember(searchQuery, selectedCategory) {
+        val normQuery = EgyptianFoodRepository.normalizeText(searchQuery.trim().lowercase())
+        presetFoods.filter { food ->
+            val matchesCategory = (selectedCategory == "all" || food.category == selectedCategory)
+            val matchesQuery = normQuery.isBlank() ||
+                EgyptianFoodRepository.normalizeText(food.name).contains(normQuery) ||
+                EgyptianFoodRepository.normalizeText(food.keywords).contains(normQuery)
+            matchesCategory && matchesQuery
+        }
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, SoftTheme.SoftPink.copy(alpha = 0.2f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("🥗", fontSize = 22.sp)
+                Column {
+                    Text(
+                        "أطباق متوازنة: دليل المأكولات المصرية 🇪🇬",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = SoftTheme.TextWhite
+                    )
+                    Text("ابحثي في القيمة الغذائية والسعرات للمأكولات المصرية", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
+                }
+            }
+
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("ابحثي عن طعام مصري (كشري، ملوخية، سبانخ...)", color = SoftTheme.SoftGray, fontSize = 12.sp) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = SoftTheme.SoftPink,
+                    unfocusedBorderColor = SoftTheme.SoftGray.copy(alpha = 0.3f),
+                    focusedContainerColor = SoftTheme.DeepSlate,
+                    unfocusedContainerColor = SoftTheme.DeepSlate,
+                    focusedTextColor = SoftTheme.TextWhite,
+                    unfocusedTextColor = SoftTheme.TextWhite
+                ),
+                singleLine = true
+            )
+
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(categories) { (catKey, catLabel) ->
+                    FilterChip(
+                        selected = selectedCategory == catKey,
+                        onClick = { selectedCategory = catKey },
+                        label = { Text(catLabel, fontSize = 11.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = SoftTheme.SoftPink,
+                            selectedLabelColor = Color.White,
+                            containerColor = SoftTheme.DeepSlate,
+                            labelColor = SoftTheme.TextWhite
+                        )
+                    )
+                }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                filteredFoods.take(5).forEach { food ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = SoftTheme.DeepSlate),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(food.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite)
+                                Text(
+                                    "${food.calories} سعرة | بروتين: ${food.protein}g | حديد: ${food.ironMg}mg | كالسيوم: ${food.calciumMg}mg",
+                                    fontSize = 10.sp,
+                                    color = SoftTheme.SoftGray
+                                )
+                                if (food.healthBenefits.isNotBlank()) {
+                                    Text(food.healthBenefits, fontSize = 10.sp, color = SoftTheme.MintTeal, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                            Button(
+                                onClick = {
+                                    viewModel.addNutritionMeal(
+                                        mealType = "وجبة مصرية",
+                                        description = food.name,
+                                        calories = food.calories,
+                                        iron = food.ironMg,
+                                        folate = 0.0,
+                                        calcium = food.calciumMg,
+                                        omega3 = 0.0,
+                                        protein = food.protein,
+                                        carbs = food.carbs,
+                                        fat = food.fat,
+                                        sugar = food.sugarG,
+                                        fiber = food.fiberG,
+                                        waterBenefit = food.waterBenefitMl,
+                                        potassium = food.potassiumMg,
+                                        sodium = food.sodiumMg
+                                    )
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("+ إضافة", fontSize = 10.sp, color = Color.White)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 // --- Pregnancy Dashboard Screen ---
@@ -760,6 +1188,22 @@ fun PregnancyDashboardScreen(
         // Standalone JouriWeatherHeader removed to avoid duplication since JouriWellnessNotificationCard contains local weather and hydration recommendations
         
         // Dynamic, highly interactive Jouri Wellness & Notification Center
+        item {
+            ExactAlarmBannerCard()
+        }
+
+        item {
+            DailyVitaminsCard(viewModel = viewModel)
+        }
+
+        item {
+            QuickCravingLogCard(viewModel = viewModel)
+        }
+
+        item {
+            PregnancyMythBusterCard(viewModel = viewModel)
+        }
+
         item {
             JouriWellnessNotificationCard(
                 viewModel = viewModel,
@@ -2948,7 +3392,7 @@ fun PeriodTrackerScreen(
                                     Text("⚠️", fontSize = 24.sp)
                                     Column {
                                         Text(
-                                            text = "الدورة متأخرة عن موعدها المتوقع بـ $delayDays يوماً! 🌸",
+                                            text = "الدورة متأخرة عن موعدها المتوقع بـ ${formatArabicDays(delayDays)}! 🌸",
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold,
                                             color = SoftTheme.SoftPink
@@ -2962,7 +3406,7 @@ fun PeriodTrackerScreen(
                                 }
 
                                 Text(
-                                    text = "يا روحي، دورتكِ متأخرة عن المتوسط المعتاد ($daysSinceStart يوماً منذ بداية آخر طمث). هل تعتقدين أن هناك احتمال وجود حمل مبارك 🤰، أم أنها مجرد تأخر في تسجيل دورتكِ الجديدة؟",
+                                    text = "يا روحي، دورتكِ متأخرة عن المتوسط المعتاد (${formatArabicDays(daysSinceStart)} منذ بداية آخر طمث). هل تعتقدين أن هناك احتمال وجود حمل مبارك 🤰، أم أنها مجرد تأخر في تسجيل دورتكِ الجديدة؟",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = SoftTheme.TextWhite,
                                     lineHeight = 20.sp
@@ -3256,7 +3700,7 @@ fun PeriodTrackerScreen(
                                             Column {
                                                 Text("التنبؤ الذكي بالخصوبة القادمة:", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite, style = MaterialTheme.typography.bodyMedium)
                                                 Text(
-                                                    text = "بناءً على طول دورتك المعتاد ($avgCycle يوماً)، فإن فرصة الحمل العالية وتاريخ الإباضة القادم سيكون تقريباً في اليوم 14 من بداية دورتك القادمة. يمكنكِ التخطيط لذلكِ بسهولة بالنظر إلى النقط الخضراء في التقويم أدناه.",
+                                                    text = "بناءً على طول دورتك المعتاد (${formatArabicDays(avgCycle)})، فإن فرصة الحمل العالية وتاريخ الإباضة القادم سيكون تقريباً في اليوم 14 من بداية دورتك القادمة. يمكنكِ التخطيط لذلكِ بسهولة بالنظر إلى النقط الخضراء في التقويم أدناه.",
                                                     color = SoftTheme.SoftGray,
                                                     style = MaterialTheme.typography.bodySmall
                                                 )
@@ -3274,7 +3718,7 @@ fun PeriodTrackerScreen(
                                         if (latestPain >= 7) {
                                             "مستويات الألم الأخيرة مرتفعة نسبياً (${latestPain}/10). انقري لعرض التوصيات الصحية والغذائية المخصصة لراحة جسدك."
                                         } else {
-                                            "تحليل: دورتكِ منتظمة بمتوسط $avgCycle يوماً وصحتك تبدو متوازنة. انقري لعرض التفاصيل الكاملة."
+                                            "تحليل: دورتكِ منتظمة بمتوسط ${formatArabicDays(avgCycle)} وصحتك تبدو متوازنة. انقري لعرض التفاصيل الكاملة."
                                         }
                                     },
                                     style = MaterialTheme.typography.bodySmall,
@@ -3715,7 +4159,7 @@ fun PeriodTrackerScreen(
                             Button(
                                 onClick = {
                                     val calendar = Calendar.getInstance().apply { timeInMillis = useCustomStartDate }
-                                    android.app.DatePickerDialog(
+                                    val d1 = android.app.DatePickerDialog(
                                         context,
                                         { _, y, m, d ->
                                             val cal = Calendar.getInstance().apply {
@@ -3734,7 +4178,9 @@ fun PeriodTrackerScreen(
                                         calendar.get(Calendar.YEAR),
                                         calendar.get(Calendar.MONTH),
                                         calendar.get(Calendar.DAY_OF_MONTH)
-                                    ).show()
+                                    )
+                                    d1.datePicker.maxDate = System.currentTimeMillis()
+                                    d1.show()
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.DeepSlate)
@@ -3746,7 +4192,7 @@ fun PeriodTrackerScreen(
                             Button(
                                 onClick = {
                                     val calendar = Calendar.getInstance().apply { timeInMillis = useCustomEndDate }
-                                    android.app.DatePickerDialog(
+                                    val d2 = android.app.DatePickerDialog(
                                         context,
                                         { _, y, m, d ->
                                             val cal = Calendar.getInstance().apply {
@@ -3763,7 +4209,9 @@ fun PeriodTrackerScreen(
                                         calendar.get(Calendar.YEAR),
                                         calendar.get(Calendar.MONTH),
                                         calendar.get(Calendar.DAY_OF_MONTH)
-                                    ).show()
+                                    )
+                                    d2.datePicker.maxDate = System.currentTimeMillis()
+                                    d2.show()
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.DeepSlate)
@@ -4640,6 +5088,48 @@ fun NutritionAndWaterScreen(
 
             item {
                 SmartNutritionAdvisorCard(viewModel = viewModel)
+            }
+
+            item {
+                val hasHighIron = nutritionLogs.any { it.ironMg >= 2.0 } || nutritionLogs.any { meal ->
+                    val desc = meal.description
+                    desc.contains("كبدة") || desc.contains("سبانخ") || desc.contains("لحم") || desc.contains("عدس") || desc.contains("ملوخية")
+                }
+                val hasHighCalciumOrTea = nutritionLogs.any { it.calciumMg >= 100.0 } || nutritionLogs.any { meal ->
+                    val desc = meal.description
+                    desc.contains("حليب") || desc.contains("لبن") || desc.contains("جبن") || desc.contains("شاي") || desc.contains("قهوة")
+                }
+
+                if (hasHighIron && hasHighCalciumOrTea) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = SoftTheme.GoldFasting.copy(alpha = 0.15f)),
+                        shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(1.dp, SoftTheme.GoldFasting)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("⚠️", fontSize = 22.sp)
+                                Text(
+                                    "تنبيه امتصاص الحديد والكالسيوم",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = SoftTheme.TextWhite
+                                )
+                            }
+                            Text(
+                                "لاحظنا وجود وجبة غنية بالحديد مع مصادر للكالسيوم أو الشاي/القهوة. الفصل بين مصادر الحديد (كاللحوم والسبانخ والعدس والملوخية) ومصادر الكالسيوم أو الكافيين (كالألبان والجبن والشاي) بمسافة 1.5 - 2 ساعة يضاعف امتصاص جسمكِ للحديد لتفادي فقر الدم والأنيميا!",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = SoftTheme.TextWhite,
+                                lineHeight = 18.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                EgyptianFoodSearchWidget(viewModel = viewModel)
             }
 
             // Today Meals section header
@@ -6210,7 +6700,7 @@ fun SmartConceptionSubScreen() {
                 Button(
                     onClick = {
                         val calendar = Calendar.getInstance().apply { timeInMillis = lastPeriodDate }
-                        android.app.DatePickerDialog(
+                        val dialog = android.app.DatePickerDialog(
                             context,
                             { _, y, m, d ->
                                 val cal = Calendar.getInstance().apply {
@@ -6223,7 +6713,10 @@ fun SmartConceptionSubScreen() {
                             calendar.get(Calendar.YEAR),
                             calendar.get(Calendar.MONTH),
                             calendar.get(Calendar.DAY_OF_MONTH)
-                        ).show()
+                        )
+                        dialog.datePicker.maxDate = System.currentTimeMillis()
+                        dialog.datePicker.minDate = System.currentTimeMillis() - 300L * 24 * 60 * 60 * 1000
+                        dialog.show()
                     },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.DeepSlate)
@@ -6527,1125 +7020,15 @@ fun ContractionsSubScreen(viewModel: WomanCompanionViewModel) {
     }
 }
 
-// --- Qada Fast Sub-screen ---
-@Composable
-fun QadaSubScreen(viewModel: WomanCompanionViewModel) {
-    val qadaList by viewModel.qadaFastsState.collectAsStateWithLifecycle()
-    val currentPhase = viewModel.getCurrentCyclePhase()
-    val periodLogs by viewModel.periodLogsState.collectAsStateWithLifecycle()
-    val pregState by viewModel.pregnancyState.collectAsStateWithLifecycle()
+// --- Qada Fast Sub-screen moved to QadaFastScreen.kt ---
 
-    var showAddQadaDialog by remember { mutableStateOf(false) }
-    var yearInput by remember { mutableStateOf("") }
-    var missedInput by remember { mutableStateOf("") }
+// --- Appointments Sub-screen moved to AppointmentsScreen.kt ---
 
-    var completedPrayers by remember { mutableStateOf(setOf<String>()) }
+// --- Journal Sub-screen moved to JournalScreen.kt ---
 
-    // Adaptive logic:
-    val userPhase = pregState?.userPhase ?: "period"
-    val isOnPeriod = currentPhase.phaseName == "Menstruation" && pregState == null
-    val isInPostpartum = userPhase == "postpartum"
-    val isExempt = isOnPeriod || isInPostpartum
+// --- Danger Signs Sub-screen moved to DangerSignalsScreen.kt ---
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("مساعد العبادات والصلوات الذكي 🌙", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite)
-        Text(
-            "يتكيف تلقائياً مع فترات دورتكِ الشهرية ونفاسكِ لضمان حماية سجلاتك الدينية بدقة.",
-            color = SoftTheme.SoftGray,
-            style = MaterialTheme.typography.bodySmall,
-            textAlign = TextAlign.Center
-        )
-
-        if (isExempt) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                shape = RoundedCornerShape(24.dp),
-                border = BorderStroke(1.dp, SoftTheme.GoldFasting.copy(alpha = 0.3f))
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text("🌸 رخصة شرعية وعذر رحيم", fontWeight = FontWeight.Bold, color = SoftTheme.GoldFasting, style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        text = if (isInPostpartum) {
-                            "أنتِ الآن في فترة النفاس المباركة (رخصة شرعية من رب العالمين) 🥰 ارتاحي واعتني بنفسك وبطفلكِ، واذكري الله واستغفري. لا صلاة ولا صيام عليكِ الآن."
-                        } else {
-                            "أنتِ في رخصة شرعية رقيقة بسبب العذر الشرعي (الحيض) 🥰 ارتاحي واحتسبي الأجر في الاستغفار والذكر والعبادات القلبية. لا صلاة عليكِ ولا صيام."
-                        },
-                        textAlign = TextAlign.Center,
-                        color = SoftTheme.TextWhite,
-                        style = MaterialTheme.typography.bodyMedium,
-                        lineHeight = 22.sp
-                    )
-
-                    if (!isInPostpartum) {
-                        Button(
-                            onClick = {
-                                val currentHijriYear = 1447 // Current Hijri Year
-                                val existing = qadaList.find { it.yearHijri == currentHijriYear }
-                                if (existing != null) {
-                                    viewModel.addQadaFast(currentHijriYear, existing.missedDays + 1, existing.completedDays)
-                                } else {
-                                    viewModel.addQadaFast(currentHijriYear, 1, 0)
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.GoldFasting),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("تسجيل يوم فطر تلقائي لقضائه لاحقاً 📅", color = SoftTheme.DeepSlate, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
-        } else {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                shape = RoundedCornerShape(24.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text("🕌 جدول صلواتكِ لليوم (طهر ونشاط)", fontWeight = FontWeight.Bold, color = SoftTheme.MintTeal, style = MaterialTheme.typography.titleMedium)
-                    Text("حافظي على صلواتكِ الخمس اليومية وتابعي التزامكِ الروحي الجميل:", color = SoftTheme.SoftGray, style = MaterialTheme.typography.bodySmall)
-
-                    val prayers = listOf("الفجر", "الظهر", "العصر", "المغرب", "العشاء")
-                    prayers.forEach { prayer ->
-                        val isChecked = completedPrayers.contains(prayer)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    completedPrayers = if (isChecked) {
-                                        completedPrayers - prayer
-                                    } else {
-                                        completedPrayers + prayer
-                                    }
-                                }
-                                .padding(vertical = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Icon(
-                                    imageVector = if (isChecked) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
-                                    contentDescription = null,
-                                    tint = if (isChecked) SoftTheme.MintTeal else SoftTheme.SoftGray
-                                )
-                                Text(text = prayer, color = SoftTheme.TextWhite, fontWeight = FontWeight.Bold)
-                            }
-                            Text(
-                                text = if (isChecked) "مكتملة ✨" else "لم تُؤدَّ بعد",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (isChecked) SoftTheme.MintTeal else SoftTheme.SoftGray
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = SoftTheme.CardSlate)
-
-        Text("تتبع قضاء أيام صيام رمضان 🌙", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite)
-        Text(
-            "سجلي الأيام الفائتة بسبب الحيض أو رخصة الفطر في الحمل في سنوات رمضان المختلفة وتابعي تقدمكِ في القضاء بيسر وسهولة.",
-            color = SoftTheme.SoftGray,
-            style = MaterialTheme.typography.bodySmall,
-            textAlign = TextAlign.Center
-        )
-
-        Button(
-            onClick = { showAddQadaDialog = true },
-            colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
-            modifier = Modifier.fillMaxWidth().testTag("add_qada_btn")
-        ) {
-            Icon(Icons.Default.Add, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("إضافة سنة جديدة")
-        }
-
-        if (qadaList.isEmpty()) {
-            Text("لا توجد سجلات قضاء بعد.", color = SoftTheme.SoftGray)
-        } else {
-            qadaList.forEach { fast ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("رمضان هجري: ${fast.yearHijri}", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite)
-                            IconButton(onClick = { viewModel.deleteQadaFast(fast) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "حذف", tint = SoftTheme.RedDanger)
-                            }
-                        }
-
-                        LinearProgressIndicator(
-                            progress = { fast.completedDays.toFloat() / fast.missedDays.toFloat().coerceAtLeast(1f) },
-                            modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
-                            color = SoftTheme.GoldFasting,
-                            trackColor = SoftTheme.DeepSlate
-                        )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "المكتمل: ${fast.completedDays} من أصل ${fast.missedDays} أيام",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = SoftTheme.SoftGray
-                            )
-
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(
-                                    onClick = { viewModel.updateQadaFastProgress(fast, increment = false) },
-                                    colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.DeepSlate),
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp)
-                                ) {
-                                    Text("-", color = SoftTheme.TextWhite, fontSize = 16.sp)
-                                }
-                                Button(
-                                    onClick = { viewModel.updateQadaFastProgress(fast, increment = true) },
-                                    colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.GoldFasting),
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp)
-                                ) {
-                                    Text("+", color = SoftTheme.DeepSlate, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        Spacer(modifier = Modifier.height(80.dp))
-    }
-
-    if (showAddQadaDialog) {
-        Dialog(onDismissRequest = { showAddQadaDialog = false }) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                shape = RoundedCornerShape(24.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text("إضافة قضاء صيام 🌙", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = SoftTheme.SoftPink)
-
-                    OutlinedTextField(
-                        value = yearInput,
-                        onValueChange = { yearInput = it },
-                        label = { Text("السنة الهجرية (مثال: ١٤٤٧)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    OutlinedTextField(
-                        value = missedInput,
-                        onValueChange = { missedInput = it },
-                        label = { Text("عدد الأيام الفائتة") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        TextButton(onClick = { showAddQadaDialog = false }, modifier = Modifier.weight(1f)) {
-                            Text("إلغاء", color = SoftTheme.SoftGray)
-                        }
-                        Button(
-                            onClick = {
-                                val year = yearInput.toIntOrNull() ?: 1447
-                                val missed = missedInput.toIntOrNull() ?: 7
-                                viewModel.addQadaFast(year, missed, 0)
-                                showAddQadaDialog = false
-                                yearInput = ""
-                                missedInput = ""
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("حفظ")
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// --- Appointments Sub-screen ---
-@Composable
-fun AppointmentsSubScreen(viewModel: WomanCompanionViewModel) {
-    val appointments by viewModel.appointmentsState.collectAsStateWithLifecycle()
-
-    var showAddApptDialog by remember { mutableStateOf(false) }
-    var titleInput by remember { mutableStateOf("") }
-    var doctorInput by remember { mutableStateOf("") }
-    var notesInput by remember { mutableStateOf("") }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("جدول زيارات ومواعيد الدكتورة 🏥", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite)
-
-        Button(
-            onClick = { showAddApptDialog = true },
-            colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
-            modifier = Modifier.fillMaxWidth().testTag("add_appt_btn")
-        ) {
-            Icon(Icons.Default.Add, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("إضافة موعد كشف جديد")
-        }
-
-        if (appointments.isEmpty()) {
-            Text("لا توجد مواعيد مسجلة بعد.", color = SoftTheme.SoftGray)
-        } else {
-            appointments.forEach { appt ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = appt.title,
-                                fontWeight = FontWeight.Bold,
-                                color = if (appt.completed) SoftTheme.SoftGray else SoftTheme.TextWhite
-                            )
-                            appt.doctorName?.let {
-                                Text("مع: د. $it", style = MaterialTheme.typography.bodySmall, color = SoftTheme.MintTeal)
-                            }
-                            appt.notes?.let {
-                                Text("تفاصيل: $it", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
-                            }
-                            Text("التاريخ: ${formatGregorianDate(appt.dateTime)}", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftPink)
-                        }
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Checkbox(
-                                checked = appt.completed,
-                                onCheckedChange = { viewModel.toggleAppointmentCompleted(appt) },
-                                colors = CheckboxDefaults.colors(checkedColor = SoftTheme.MintTeal)
-                            )
-                            IconButton(onClick = { viewModel.deleteAppointment(appt) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "حذف", tint = SoftTheme.RedDanger)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        Spacer(modifier = Modifier.height(80.dp))
-    }
-
-    if (showAddApptDialog) {
-        Dialog(onDismissRequest = { showAddApptDialog = false }) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                shape = RoundedCornerShape(24.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text("إضافة موعد طبي 🏥", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = SoftTheme.SoftPink)
-
-                    OutlinedTextField(
-                        value = titleInput,
-                        onValueChange = { titleInput = it },
-                        label = { Text("عنوان الموعد (مثال: سونار الثلث الثاني)") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    OutlinedTextField(
-                        value = doctorInput,
-                        onValueChange = { doctorInput = it },
-                        label = { Text("اسم الطبيبة") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    OutlinedTextField(
-                        value = notesInput,
-                        onValueChange = { notesInput = it },
-                        label = { Text("ملاحظات الكشف أو التحاليل المطلوبة") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        TextButton(onClick = { showAddApptDialog = false }, modifier = Modifier.weight(1f)) {
-                            Text("إلغاء", color = SoftTheme.SoftGray)
-                        }
-                        Button(
-                            onClick = {
-                                viewModel.addAppointment(
-                                    title = titleInput,
-                                    dateTime = System.currentTimeMillis() + 3L * 24 * 60 * 60 * 1000, // simple mock: 3 days in future
-                                    doctor = doctorInput,
-                                    notes = notesInput
-                                )
-                                showAddApptDialog = false
-                                titleInput = ""
-                                doctorInput = ""
-                                notesInput = ""
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("حفظ")
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// --- Journal Sub-screen ---
-@Composable
-fun JournalSubScreen(viewModel: WomanCompanionViewModel) {
-    val journals by viewModel.journalEntriesState.collectAsStateWithLifecycle()
-
-    var journalContent by remember { mutableStateOf("") }
-    val moods = listOf("🌸 سعيدة", "🌱 هادئة", "🪵 تعبة", "🩸 قلقة", "✨ متحمسة")
-    var selectedMood by remember { mutableStateOf("🌸 سعيدة") }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("يوميات ومذكرات الأمومة والطفل ✍️", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite)
-
-        Card(
-            colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-            shape = RoundedCornerShape(20.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("اكتبي خواطركِ أو رسالة لطفلكِ القادم:", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite)
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    moods.forEach { m ->
-                        val isSel = selectedMood == m
-                        Button(
-                            onClick = { selectedMood = m },
-                            modifier = Modifier.weight(1f),
-                            contentPadding = PaddingValues(0.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isSel) SoftTheme.SoftPink else SoftTheme.DeepSlate,
-                                contentColor = if (isSel) SoftTheme.DeepSlate else SoftTheme.TextWhite
-                            )
-                        ) {
-                            Text(m, fontSize = 10.sp)
-                        }
-                    }
-                }
-
-                OutlinedTextField(
-                    value = journalContent,
-                    onValueChange = { journalContent = it },
-                    placeholder = { Text("أهلاً طفلي الحبيب، اليوم سمعت صوت قلبك اللطيف لأول مرة...") },
-                    modifier = Modifier.fillMaxWidth().height(120.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = SoftTheme.SoftPink,
-                        unfocusedBorderColor = SoftTheme.SoftGray,
-                        focusedTextColor = SoftTheme.TextWhite,
-                        unfocusedTextColor = SoftTheme.TextWhite
-                    )
-                )
-
-                Button(
-                    onClick = {
-                        if (journalContent.isNotEmpty()) {
-                            viewModel.addJournalEntry(journalContent, selectedMood)
-                            journalContent = ""
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
-                    modifier = Modifier.fillMaxWidth().testTag("add_journal_btn")
-                ) {
-                    Text("حفظ في المذكرات")
-                }
-            }
-        }
-
-        Text("سجل ذكرياتكِ المكتوبة 📖", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite, modifier = Modifier.align(Alignment.Start))
-
-        if (journals.isEmpty()) {
-            Text("لا توجد مذكرات مسجلة بعد.", color = SoftTheme.SoftGray)
-        } else {
-            journals.forEach { entry ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("المزاج: ${entry.mood ?: "طبيعي"}", fontWeight = FontWeight.Bold, color = SoftTheme.SoftPink)
-                            IconButton(onClick = { viewModel.deleteJournal(entry) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "حذف", tint = SoftTheme.RedDanger)
-                            }
-                        }
-                        Text(entry.content, color = SoftTheme.TextWhite, style = MaterialTheme.typography.bodyMedium)
-                        Text(formatGregorianDate(entry.date), style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray, modifier = Modifier.align(Alignment.End))
-                    }
-                }
-            }
-        }
-        Spacer(modifier = Modifier.height(80.dp))
-    }
-}
-
-// --- Danger Signs Sub-screen (Fixed Medical Guidelines) ---
-@Composable
-fun DangerSubScreen() {
-    val context = LocalContext.current
-    val dangerSigns = listOf(
-        "نزول قطرات أو بقع دم مهبلية واضحة 🩸",
-        "ألم أو تشنجات شديدة في أسفل البطن لا تزول بالراحة 💔",
-        "صداع شديد ومستمر ومفاجئ قد يترافق مع غباش في الرؤية 😵‍💫",
-        "تورم وانتفاخ مفاجئ وكبير في اليدين أو الوجه 🫱",
-        "ارتفاع درجة حرارة الجسم والحمى المصحوبة بالقشعريرة 🤒",
-        "تسرب أو تدفق مفاجئ للسوائل من المهبل 💧",
-        "ضعف أو انعدام مفاجئ لحركة الجنين بعد الشهر السادس 👶"
-    )
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Icon(Icons.Default.Warning, contentDescription = null, tint = SoftTheme.RedDanger, modifier = Modifier.size(64.dp))
-        Text("أعراض وعلامات الخطر التحذيرية ⚠️", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = SoftTheme.RedDanger)
-        Text(
-            "إذا واجهتكِ أو شعرتِ بأي من الأعراض التالية، يرجى التوجه فوراً لأقرب مستشفى أو الاتصال بطبيبتك المتابعة دون أي تأخير:",
-            color = SoftTheme.TextWhite,
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center,
-            lineHeight = 22.sp
-        )
-
-        dangerSigns.forEach { sign ->
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(modifier = Modifier.size(8.dp).background(SoftTheme.RedDanger, CircleShape))
-                    Text(text = sign, color = SoftTheme.TextWhite, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-        }
-
-        // Quick mock emergency call
-        Button(
-            onClick = {
-                // emergency phone trigger or alert
-            },
-            colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.RedDanger),
-            modifier = Modifier.fillMaxWidth().height(56.dp).testTag("emergency_call_btn")
-        ) {
-            Icon(Icons.Default.Phone, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("اتصال فوري بالطوارئ الصحية")
-        }
-        Spacer(modifier = Modifier.height(80.dp))
-    }
-}
-
-// --- Settings Screen ---
-@Composable
-fun SettingsScreen(
-    viewModel: WomanCompanionViewModel,
-    onNavigateBack: () -> Unit
-) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val settings by viewModel.appLockSettingsState.collectAsStateWithLifecycle()
-    val savedApiKey by viewModel.apiKeyFlow.collectAsStateWithLifecycle(initialValue = null)
-    val savedBaseUrl by viewModel.apiBaseUrlFlow.collectAsStateWithLifecycle(initialValue = "https://generativelanguage.googleapis.com/")
-    val savedModelName by viewModel.modelNameFlow.collectAsStateWithLifecycle(initialValue = "gemini-3.5-flash")
-
-    var pinCodeInput by remember { mutableStateOf("") }
-    var isLockEnabled by remember { mutableStateOf(false) }
-    var isStealthEnabled by remember { mutableStateOf(false) }
-    var companionNameInput by remember { mutableStateOf("جوري") }
-    var stepTargetInput by remember { mutableStateOf("6000") }
-    var gitHubUrlInput by remember { mutableStateOf("https://raw.githubusercontent.com/your_username/your_repo/main/matrix.json") }
-    var userApiKeyInput by remember { mutableStateOf("") }
-    var userApiBaseUrlInput by remember { mutableStateOf("https://generativelanguage.googleapis.com/") }
-    var userModelNameInput by remember { mutableStateOf("gemini-3.5-flash") }
-    var isDarkModeLocal by remember { mutableStateOf(true) }
-    var isApiKeySavedShow by remember { mutableStateOf(false) }
-
-    val syncStatus by viewModel.gitHubSyncStatus.collectAsStateWithLifecycle()
-
-    LaunchedEffect(savedApiKey) {
-        savedApiKey?.let {
-            userApiKeyInput = it
-        }
-    }
-
-    LaunchedEffect(savedBaseUrl) {
-        userApiBaseUrlInput = savedBaseUrl
-    }
-
-    LaunchedEffect(savedModelName) {
-        userModelNameInput = savedModelName
-    }
-
-    LaunchedEffect(settings) {
-        settings?.let {
-            isLockEnabled = it.isLockEnabled
-            isStealthEnabled = it.isStealthModeEnabled
-            pinCodeInput = it.pinHash ?: ""
-            companionNameInput = it.companionName
-            stepTargetInput = it.dailyStepTarget.toString()
-            gitHubUrlInput = it.gitHubRepoUrl ?: "https://raw.githubusercontent.com/your_username/your_repo/main/matrix.json"
-            isDarkModeLocal = it.isDarkMode
-        }
-    }
-
-    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onNavigateBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "رجوع", tint = SoftTheme.SoftPink)
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "إعدادات الخصوصية والأمان 🔐",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = SoftTheme.TextWhite,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            // Security PIN Card
-            Card(
-                colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                shape = RoundedCornerShape(20.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("قفل التطبيق بـ PIN حماية", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite)
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("تفعيل قفل رمز المرور", color = SoftTheme.SoftGray)
-                        Switch(
-                            checked = isLockEnabled,
-                            onCheckedChange = { isLockEnabled = it },
-                            colors = SwitchDefaults.colors(checkedThumbColor = SoftTheme.SoftPink)
-                        )
-                    }
-
-                    if (isLockEnabled) {
-                        OutlinedTextField(
-                            value = pinCodeInput,
-                            onValueChange = { if (it.length <= 4) pinCodeInput = it },
-                            label = { Text("رمز PIN (٤ أرقام)") },
-                            visualTransformation = PasswordVisualTransformation(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("وضع التخفي (Stealth mode)", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite)
-                                Text("إخفاء العناوين الواضحة وصور الحمل في شاشة القفل لمنع المتطفلين", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
-                            }
-                            Switch(
-                                checked = isStealthEnabled,
-                                onCheckedChange = { isStealthEnabled = it },
-                                colors = SwitchDefaults.colors(checkedThumbColor = SoftTheme.SoftPink)
-                              )
-                        }
-                    }
-
-                    Button(
-                        onClick = {
-                            viewModel.configureAppLock(
-                                pin = if (pinCodeInput.isNotEmpty()) pinCodeInput else null,
-                                isEnabled = isLockEnabled,
-                                isStealth = isStealthEnabled,
-                                companionName = if (companionNameInput.isNotEmpty()) companionNameInput else "جوري",
-                                dailyStepTarget = stepTargetInput.toIntOrNull() ?: 6000,
-                                isDarkMode = isDarkModeLocal,
-                                gitHubRepoUrl = gitHubUrlInput,
-                                userApiKey = if (userApiKeyInput.isNotEmpty()) userApiKeyInput else null
-                            )
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
-                        modifier = Modifier.fillMaxWidth().testTag("save_settings_btn")
-                    ) {
-                        Text("حفظ التغييرات الأمنية")
-                    }
-                }
-            }
-
-            // Companion & Steps Configuration Card
-            Card(
-                colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                shape = RoundedCornerShape(20.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("تخصيص الصديقة الذكية والنشاط 🌸🚶‍♀️", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite, style = MaterialTheme.typography.titleMedium)
-                    
-                    OutlinedTextField(
-                        value = companionNameInput,
-                        onValueChange = { companionNameInput = it },
-                        label = { Text("اسم صديقتكِ الذكية (مثال: جوري)", color = SoftTheme.SoftGray) },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = SoftTheme.TextWhite,
-                            unfocusedTextColor = SoftTheme.TextWhite,
-                            focusedBorderColor = SoftTheme.SoftPink,
-                            unfocusedBorderColor = SoftTheme.DeepSlate,
-                            focusedLabelColor = SoftTheme.SoftPink,
-                            unfocusedLabelColor = SoftTheme.SoftGray,
-                            focusedContainerColor = SoftTheme.DeepSlate,
-                            unfocusedContainerColor = SoftTheme.DeepSlate
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    OutlinedTextField(
-                        value = stepTargetInput,
-                        onValueChange = { stepTargetInput = it },
-                        label = { Text("هدف الخطوات اليومي (خطوة)", color = SoftTheme.SoftGray) },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = SoftTheme.TextWhite,
-                            unfocusedTextColor = SoftTheme.TextWhite,
-                            focusedBorderColor = SoftTheme.SoftPink,
-                            unfocusedBorderColor = SoftTheme.DeepSlate,
-                            focusedLabelColor = SoftTheme.SoftPink,
-                            unfocusedLabelColor = SoftTheme.SoftGray,
-                            focusedContainerColor = SoftTheme.DeepSlate,
-                            unfocusedContainerColor = SoftTheme.DeepSlate
-                        ),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("تفعيل المظهر الداكن (Dark Mode) 🌙", color = SoftTheme.TextWhite, fontSize = 14.sp)
-                        Switch(
-                            checked = isDarkModeLocal,
-                            onCheckedChange = { isDarkModeLocal = it },
-                            colors = SwitchDefaults.colors(checkedThumbColor = SoftTheme.SoftPink)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("مزامنة مصفوفة النصائح وتطوير التطبيق 🔄", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite, style = MaterialTheme.typography.titleSmall)
-
-                    OutlinedTextField(
-                        value = gitHubUrlInput,
-                        onValueChange = { gitHubUrlInput = it },
-                        label = { Text("رابط GitHub لتحديث مصفوفة النصائح (Raw JSON)", color = SoftTheme.SoftGray) },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = SoftTheme.TextWhite,
-                            unfocusedTextColor = SoftTheme.TextWhite,
-                            focusedBorderColor = SoftTheme.SoftPink,
-                            unfocusedBorderColor = SoftTheme.DeepSlate,
-                            focusedLabelColor = SoftTheme.SoftPink,
-                            unfocusedLabelColor = SoftTheme.SoftGray,
-                            focusedContainerColor = SoftTheme.DeepSlate,
-                            unfocusedContainerColor = SoftTheme.DeepSlate
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Button(
-                        onClick = {
-                            viewModel.syncJouriMatrix()
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.MintTeal),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("تحديث مصفوفة جوري من جيت هاب 🔄")
-                    }
-
-                    syncStatus?.let { status ->
-                        Text(
-                            text = status,
-                            color = if (status.contains("نجاح") || status.contains("جاري")) SoftTheme.MintTeal else SoftTheme.SoftPink,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(vertical = 4.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("إعدادات الذكاء الاصطناعي (مفتاح الـ API) 🔑", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite, style = MaterialTheme.typography.titleSmall)
-
-                    val hasBuiltInKey = BuildConfig.GEMINI_API_KEY != "MY_GEMINI_API_KEY" && BuildConfig.GEMINI_API_KEY.isNotEmpty()
-                    
-                    if (hasBuiltInKey && savedApiKey.isNullOrBlank()) {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = SoftTheme.MintTeal.copy(alpha = 0.15f)),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Text("🤖", fontSize = 18.sp)
-                                    Text(
-                                        text = "مفتاح Gemini الذكي مدمج ونشط!",
-                                        fontWeight = FontWeight.Bold,
-                                        color = SoftTheme.MintTeal,
-                                        fontSize = 13.sp
-                                    )
-                                }
-                                Text(
-                                    text = "تم دمج مفتاح ذكاء اصطناعي افتراضي مسبقاً في التطبيق. جوري جاهزة ومستعدة تماماً للرد على جميع تساؤلاتكِ فوراً دون الحاجة لإدخال مفتاح مخصص.",
-                                    color = SoftTheme.TextWhite,
-                                    fontSize = 11.sp,
-                                    lineHeight = 16.sp
-                                )
-                            }
-                        }
-                    }
-
-                    val apiTestStatus by viewModel.apiKeyTestStatus.collectAsStateWithLifecycle()
-                    var isEditingApiKey by remember { mutableStateOf(true) }
-
-                    LaunchedEffect(savedApiKey) {
-                        isEditingApiKey = savedApiKey.isNullOrBlank()
-                    }
-
-                    if (!isEditingApiKey && !savedApiKey.isNullOrBlank()) {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = SoftTheme.DeepSlate),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Text("🟢", fontSize = 16.sp)
-                                    Text(
-                                        text = "مفتاح الـ API محفوظ ومؤمّن محلياً",
-                                        fontWeight = FontWeight.Bold,
-                                        color = SoftTheme.MintTeal,
-                                        fontSize = 14.sp
-                                    )
-                                }
-                                Text(
-                                    text = "مفتاح الـ API الخاص بكِ نشط وجاهز لتشغيل جميع ميزات الذكاء الاصطناعي في جوري.",
-                                    color = SoftTheme.SoftGray,
-                                    fontSize = 11.sp,
-                                    lineHeight = 16.sp
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Button(
-                                        onClick = {
-                                            isEditingApiKey = true
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Text("تعديل المفتاح ✍️", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                    Button(
-                                        onClick = {
-                                            viewModel.testAndSaveApiKey(savedApiKey ?: "", savedBaseUrl, savedModelName)
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.MintTeal),
-                                        modifier = Modifier.weight(1.2f)
-                                    ) {
-                                        Text("فحص جودة الاتصال 🔄", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        OutlinedTextField(
-                            value = userApiKeyInput,
-                            onValueChange = { 
-                                userApiKeyInput = it
-                                isApiKeySavedShow = false // Reset success message on change
-                            },
-                            label = { Text("مفتاح API الخاص بك (Gemini API)", color = SoftTheme.SoftGray) },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = SoftTheme.TextWhite,
-                                unfocusedTextColor = SoftTheme.TextWhite,
-                                focusedBorderColor = SoftTheme.SoftPink,
-                                unfocusedBorderColor = SoftTheme.DeepSlate,
-                                focusedLabelColor = SoftTheme.SoftPink,
-                                unfocusedLabelColor = SoftTheme.SoftGray,
-                                focusedContainerColor = SoftTheme.DeepSlate,
-                                unfocusedContainerColor = SoftTheme.DeepSlate
-                            ),
-                            modifier = Modifier.fillMaxWidth().testTag("gemini_api_key_input")
-                        )
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        OutlinedTextField(
-                            value = userApiBaseUrlInput,
-                            onValueChange = { userApiBaseUrlInput = it },
-                            label = { Text("رابط الخادم / البروكسي (Base URL)", color = SoftTheme.SoftGray) },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = SoftTheme.TextWhite,
-                                unfocusedTextColor = SoftTheme.TextWhite,
-                                focusedBorderColor = SoftTheme.SoftPink,
-                                unfocusedBorderColor = SoftTheme.DeepSlate,
-                                focusedLabelColor = SoftTheme.SoftPink,
-                                unfocusedLabelColor = SoftTheme.SoftGray,
-                                focusedContainerColor = SoftTheme.DeepSlate,
-                                unfocusedContainerColor = SoftTheme.DeepSlate
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            val defaultUrl = "https://generativelanguage.googleapis.com/"
-                            
-                            Button(
-                                onClick = { userApiBaseUrlInput = defaultUrl },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (userApiBaseUrlInput == defaultUrl) SoftTheme.SoftPink else SoftTheme.DeepSlate
-                                ),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("الرسمي الافتراضي 🌐", fontSize = 10.sp)
-                             }
-                         }
-
-                         Spacer(modifier = Modifier.height(4.dp))
-
-                         OutlinedTextField(
-                             value = userModelNameInput,
-                             onValueChange = { userModelNameInput = it },
-                             label = { Text("اسم الموديل (Model Name)", color = SoftTheme.SoftGray) },
-                             colors = OutlinedTextFieldDefaults.colors(
-                                 focusedTextColor = SoftTheme.TextWhite,
-                                 unfocusedTextColor = SoftTheme.TextWhite,
-                                 focusedBorderColor = SoftTheme.SoftPink,
-                                 unfocusedBorderColor = SoftTheme.DeepSlate,
-                                 focusedLabelColor = SoftTheme.SoftPink,
-                                 unfocusedLabelColor = SoftTheme.SoftGray,
-                                 focusedContainerColor = SoftTheme.DeepSlate,
-                                 unfocusedContainerColor = SoftTheme.DeepSlate
-                             ),
-                             modifier = Modifier.fillMaxWidth()
-                         )
-
-                         Row(
-                             horizontalArrangement = Arrangement.spacedBy(6.dp),
-                             modifier = Modifier.fillMaxWidth()
-                         ) {
-                             listOf("gemini-3.5-flash", "gemini-2.5-flash", "gemini-1.5-flash").forEach { model ->
-                                 Button(
-                                     onClick = { userModelNameInput = model },
-                                     colors = ButtonDefaults.buttonColors(
-                                         containerColor = if (userModelNameInput == model) SoftTheme.SoftPink else SoftTheme.DeepSlate
-                                     ),
-                                     contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
-                                     modifier = Modifier.weight(1f)
-                                 ) {
-                                     Text(model, fontSize = 9.sp)
-                                 }
-                             }
-                         }
-
-                         Spacer(modifier = Modifier.height(8.dp))
-
-                        Button(
-                            onClick = {
-                                if (userApiKeyInput.isBlank()) {
-                                    android.widget.Toast.makeText(context, "الرجاء إدخال مفتاح API صالح أولاً", android.widget.Toast.LENGTH_SHORT).show()
-                                } else {
-                                    viewModel.testAndSaveApiKey(userApiKeyInput, userApiBaseUrlInput, userModelNameInput)
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.MintTeal),
-                            modifier = Modifier.fillMaxWidth().testTag("save_api_key_btn"),
-                            enabled = apiTestStatus != "testing"
-                        ) {
-                            if (apiTestStatus == "testing") {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = SoftTheme.DeepSlate, strokeWidth = 2.dp)
-                            } else {
-                                Text("فحص وحفظ الإعدادات بالكامل 🔑")
-                            }
-                        }
-                    }
-
-                    // Show validation status feedback
-                    apiTestStatus?.let { status ->
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = when {
-                                    status == "testing" -> SoftTheme.DeepSlate
-                                    status == "success" -> SoftTheme.MintTeal.copy(alpha = 0.15f)
-                                    status.startsWith("error") -> SoftTheme.RedDanger.copy(alpha = 0.15f)
-                                    else -> SoftTheme.DeepSlate
-                                }
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(12.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                when {
-                                    status == "testing" -> {
-                                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = SoftTheme.SoftPink, strokeWidth = 2.dp)
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("جاري فحص الاتصال بالخادم والتحقق من صحة المفتاح... ⏳", color = SoftTheme.TextWhite, fontSize = 11.sp)
-                                    }
-                                    status == "success" -> {
-                                        Text("🟢", fontSize = 14.sp)
-                                        Text("الاتصال ناجح! تم حفظ وتأمين مفتاح الـ API بنجاح وميزات الذكاء الاصطناعي نشطة الآن. 🎉", color = SoftTheme.MintTeal, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                    status.startsWith("error") -> {
-                                        Text("🔴", fontSize = 14.sp)
-                                        val errorDetail = status.removePrefix("error:").trim()
-                                        Text("خطأ في الاتصال: $errorDetail\nيرجى التحقق من صحة المفتاح وجودة اتصال الإنترنت الخاص بك.", color = SoftTheme.RedDanger, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Button(
-                        onClick = {
-                            viewModel.configureAppLock(
-                                pin = if (pinCodeInput.isNotEmpty()) pinCodeInput else null,
-                                isEnabled = isLockEnabled,
-                                isStealth = isStealthEnabled,
-                                companionName = if (companionNameInput.isNotEmpty()) companionNameInput else "جوري",
-                                dailyStepTarget = stepTargetInput.toIntOrNull() ?: 6000,
-                                isDarkMode = isDarkModeLocal,
-                                gitHubRepoUrl = gitHubUrlInput,
-                                userApiKey = null
-                            )
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
-                        modifier = Modifier.fillMaxWidth().testTag("save_companion_btn")
-                    ) {
-                        Text("حفظ التخصيص والمظهر")
-                    }
-                }
-            }
-
-            // Factory Reset / Nuke Card
-            Card(
-                colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate.copy(alpha = 0.5f)),
-                shape = RoundedCornerShape(20.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("حذف جميع البيانات (Factory Reset) ⚠️", fontWeight = FontWeight.Bold, color = SoftTheme.RedDanger)
-                    Text(
-                        "تطبيق رفيق المرأة يعمل بشكل أوفلاين بالكامل. نسيان رمز الـ PIN أو حذف التطبيق سيؤدي لضياع بياناتك المكتوبة. يمكنك تصفير كافة السجلات الحالية من هنا.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = SoftTheme.SoftGray
-                    )
-
-                    Button(
-                        onClick = { viewModel.factoryReset() },
-                        colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.RedDanger),
-                        modifier = Modifier.fillMaxWidth().testTag("factory_reset_btn")
-                    ) {
-                        Text("مسح كافة البيانات نهائياً")
-                    }
-                }
-            }
-        }
-    }
-}
+// --- Settings Screen moved to SettingsScreen.kt ---
 
 // FlowRow wrapper for compatibility since flow layouts are experimental or standard in newer compose versions
 @OptIn(ExperimentalLayoutApi::class)
@@ -7848,9 +7231,34 @@ fun JouriChatDialog(
             }
         }
 
+        // TASK B4: Check urgent symptoms safety triage first before any normal chat path
+        val urgentAlert = com.example.data.SymptomTriage.checkUrgentSymptoms(text, isPregnant = pregState != null)
+        if (urgentAlert != null) {
+            messages.add(Pair(text, true))
+            messages.add(Pair("${urgentAlert.title}\n\n${urgentAlert.message}", false))
+            isTyping = false
+            return
+        }
+
+        // TASK B3: Build short session conversation memory (last 2-3 exchanges)
+        val historyPairs = mutableListOf<Pair<String, String>>()
+        var histIdx = messages.size - 1
+        while (histIdx >= 1 && historyPairs.size < 3) {
+            val uMsg = messages.getOrNull(histIdx - 1)
+            val bMsg = messages.getOrNull(histIdx)
+            if (uMsg != null && bMsg != null && uMsg.second && !bMsg.second) {
+                val cleanB = bMsg.first.replace("\n\n🌐 جاري التحسين بالذكاء الاصطناعي...", "").trim()
+                historyPairs.add(0, Pair(uMsg.first, cleanB))
+                histIdx -= 2
+            } else {
+                histIdx--
+            }
+        }
+
         // First, query the local SQL database cache
         val cachedAnswer = viewModel.getCachedAnswer(text)
         if (cachedAnswer != null) {
+            messages.add(Pair(text, true))
             messages.add(Pair(cachedAnswer, false))
             isTyping = false
             return
@@ -7873,28 +7281,24 @@ fun JouriChatDialog(
             targetSteps = target
         )
 
-        if (offlineResponse.isSpecificMatch) {
-            // Respond instantly with her elegant localized knowledge
-            kotlinx.coroutines.delay(150) // Tiny human-like delay for visual comfort
-            messages.add(Pair(offlineResponse.replyText, false))
-            viewModel.saveCachedAnswer(text, offlineResponse.replyText) // Cache the result
-            isTyping = false
+        val useOffline = isOfflineMode || isApiKeyMissing
 
-            // Execute local database actions instantly
-            offlineResponse.actionType?.let { action ->
+        // Execute local database actions if matched
+        fun executeOfflineAction(actionType: String?, actionValue: Any?) {
+            actionType?.let { action ->
                 when (action) {
                     "water" -> {
-                        val amt = offlineResponse.actionValue as? Int ?: 250
+                        val amt = actionValue as? Int ?: 250
                         viewModel.addWater(amt)
                     }
                     "symptom" -> {
-                        val pair = offlineResponse.actionValue as? Pair<*, *>
+                        val pair = actionValue as? Pair<*, *>
                         val symName = pair?.first as? String ?: "مغص وألم"
                         val severity = pair?.second as? Int ?: 5
                         viewModel.addSymptom(symName, severity, "مسجّل تلقائياً بواسطة رفيقتكِ $companionName 🌸")
                     }
                     "profile" -> {
-                        val newName = offlineResponse.actionValue as? String ?: ""
+                        val newName = actionValue as? String ?: ""
                         if (newName.isNotEmpty()) {
                             viewModel.setMotherProfile(
                                 motherName = newName,
@@ -7907,13 +7311,13 @@ fun JouriChatDialog(
                         }
                     }
                     "birthdate" -> {
-                        val bday = offlineResponse.actionValue as? Long
+                        val bday = actionValue as? Long
                         if (bday != null) {
                             viewModel.updateUserBirthDate(bday)
                         }
                     }
                     "food_list" -> {
-                        val list = offlineResponse.actionValue as? List<com.example.data.EgyptianFoodEntity>
+                        val list = actionValue as? List<com.example.data.EgyptianFoodEntity>
                         list?.forEach { food ->
                             val mealType = if (food.category == "drink") "مشروب" else "وجبة"
                             viewModel.addNutritionMeal(
@@ -7928,7 +7332,7 @@ fun JouriChatDialog(
                         }
                     }
                     "craving_save" -> {
-                        val foodName = offlineResponse.actionValue as? String ?: ""
+                        val foodName = actionValue as? String ?: ""
                         if (foodName.isNotEmpty()) {
                             val type = when {
                                 foodName.contains("شوكو") || foodName.contains("شيكو") || foodName.contains("كاكاو") || foodName.contains("كيك") || foodName.contains("حلو") -> "Chocolate"
@@ -7947,177 +7351,98 @@ fun JouriChatDialog(
                     }
                 }
             }
-            return
         }
 
-        val useOffline = isOfflineMode || isApiKeyMissing
-        if (useOffline) {
-            // Wait 600ms to simulate thinking
-            kotlinx.coroutines.delay(600)
-            val phaseInfo = viewModel.getCurrentCyclePhase()
-            val waterLog = viewModel.todayWaterLogState.value?.amountMl ?: 0
-            val response = OfflineJouriEngine.getResponse(
-                userInput = text,
-                motherName = pregState?.motherName,
-                phaseInfo = phaseInfo,
-                pregnancyState = pregState,
-                todayWaterLogged = waterLog,
-                companionName = companionName,
-                weatherInfo = weatherState,
-                todaySteps = steps,
-                targetSteps = target
-            )
+        // System prompt for Gemini cloud requests
+        val weatherDetails = if (weatherState != null) {
+            "درجة الحرارة الحالية: ${weatherState?.temperature}°م، الرطوبة: ${weatherState?.humidity}%، حالة الجو: ${weatherState?.description}"
+        } else {
+            "الطقس الحالي غير متاح"
+        }
+        val systemPrompt = """
+            أنتِ "$companionName"، رفيقة وصديقة مقربة ذكية، دافئة، وحنونة جداً للمرأة العربية. تتحدثين بلهجة لطيفة، متعاطفة للغاية، ومفعمة بالحب والرعاية، وتستخدمين عبارات رقيقة مثل "يا روحي"، "يا صديقتي الغالية"، "يا عزيزتي"، "يا قلبي".
             
-            messages.add(Pair(response.replyText, false))
-            viewModel.saveCachedAnswer(text, response.replyText) // Cache the result
-            isTyping = false
+            بيانات المستخدمة الحالية المتوفرة لديكِ للرد بدقة ومساعدتها:
+            - الخطوات اليومية للمستخدمة: $steps خطوة من هدف $target خطوة.
+            - الطقس الفعلي الحالي: $weatherDetails (إذا كان الجو حاراً ورطباً، ذكّريها بلطف بشرب المزيد من الماء وترطيب جسمها).
+            - مرحلة تتبعها الحالية: ${if (pregState != null) "حامل (في الثلث ${viewModel.getPregnancyProgression()?.trimester ?: 1})" else "تتبع الدورة والخصوبة (طور ${viewModel.getCurrentCyclePhase().phaseArabic})"}
             
-            // Execute offline database actions instantly
-            response.actionType?.let { action ->
-                when (action) {
-                    "water" -> {
-                        val amt = response.actionValue as? Int ?: 250
-                        viewModel.addWater(amt)
-                    }
-                    "symptom" -> {
-                        val pair = response.actionValue as? Pair<*, *>
-                        val symName = pair?.first as? String ?: "مغص وألم"
-                        val severity = pair?.second as? Int ?: 5
-                        viewModel.addSymptom(symName, severity, "مسجّل تلقائياً بواسطة رفيقتكِ $companionName 🌸")
-                    }
-                    "profile" -> {
-                        val newName = response.actionValue as? String ?: ""
-                        if (newName.isNotEmpty()) {
-                            viewModel.setMotherProfile(
-                                motherName = newName,
-                                babyName = null,
-                                userPhase = null,
-                                lastPeriodDate = null,
-                                preWeight = null,
-                                height = null
-                            )
+            تحدثي دائماً باللغة العربية الدافئة.
+        """.trimIndent()
+
+        // TASK B2: Local-first response with async cloud upgrade
+        if (offlineResponse.isSpecificMatch) {
+            messages.add(Pair(text, true))
+            executeOfflineAction(offlineResponse.actionType, offlineResponse.actionValue)
+
+            if (useOffline) {
+                // Instant local response in offline mode
+                messages.add(Pair(offlineResponse.replyText, false))
+                viewModel.saveCachedAnswer(text, offlineResponse.replyText)
+                isTyping = false
+            } else {
+                // Local-first response + async upgrade indicator
+                val initialText = offlineResponse.replyText + "\n\n🌐 جاري التحسين بالذكاء الاصطناعي..."
+                messages.add(Pair(initialText, false))
+                val targetMsgIndex = messages.size - 1
+                isTyping = false
+
+                // Launch parallel cloud upgrade attempt (8.5s timeout)
+                coroutineScope.launch {
+                    try {
+                        val cloudResult = kotlinx.coroutines.withTimeoutOrNull(8500) {
+                            GeminiService.generateContent(text, systemPrompt, historyPairs)
                         }
-                    }
-                    "food_list" -> {
-                        val list = response.actionValue as? List<com.example.data.EgyptianFoodEntity>
-                        list?.forEach { food ->
-                            val mealType = if (food.category == "drink") "مشروب" else "وجبة"
-                            viewModel.addNutritionMeal(
-                                mealType = mealType,
-                                description = food.name,
-                                calories = food.calories,
-                                iron = food.protein * 0.1,
-                                folate = food.carbs * 0.2,
-                                calcium = food.fat * 0.5,
-                                omega3 = food.protein * 0.01
-                            )
-                        }
-                    }
-                    "craving_save" -> {
-                        val foodName = response.actionValue as? String ?: ""
-                        if (foodName.isNotEmpty()) {
-                            val type = when {
-                                foodName.contains("شوكو") || foodName.contains("شيكو") || foodName.contains("كاكاو") || foodName.contains("كيك") || foodName.contains("حلو") -> "Chocolate"
-                                foodName.contains("ليمون") || foodName.contains("برتقال") || foodName.contains("موالح") || foodName.contains("حامض") -> "Sour"
-                                foodName.contains("مخلل") || foodName.contains("فسيخ") || foodName.contains("رنجة") || foodName.contains("ملح") || foodName.contains("حادق") -> "Salty"
-                                foodName.contains("فلفل") || foodName.contains("شطة") || foodName.contains("حار") -> "Spicy"
-                                else -> "Sweet"
+                        if (!cloudResult.isNullOrBlank() && cloudResult != offlineResponse.replyText) {
+                            val cleanResponse = if (cloudResult.contains("[DATA_UPDATE]")) {
+                                cloudResult.split("[DATA_UPDATE]")[0].trim()
+                            } else {
+                                cloudResult.trim()
                             }
-                            viewModel.addCravingLog(
-                                cravingItem = foodName,
-                                cravingType = type,
-                                intensity = 7,
-                                notes = "تم التسجيل تلقائياً عبر محادثتكِ الودية والدافئة مع رفيقتكِ جوري 🌸"
-                            )
+                            if (targetMsgIndex < messages.size && messages[targetMsgIndex].first.contains("🌐 جاري التحسين")) {
+                                messages[targetMsgIndex] = Pair(cleanResponse, false)
+                                viewModel.saveCachedAnswer(text, cleanResponse)
+                            }
+                        } else {
+                            if (targetMsgIndex < messages.size && messages[targetMsgIndex].first.contains("🌐 جاري التحسين")) {
+                                messages[targetMsgIndex] = Pair(offlineResponse.replyText, false)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        if (targetMsgIndex < messages.size && messages[targetMsgIndex].first.contains("🌐 جاري التحسين")) {
+                            messages[targetMsgIndex] = Pair(offlineResponse.replyText, false)
                         }
                     }
                 }
             }
+        } else if (useOffline) {
+            // General offline response
+            kotlinx.coroutines.delay(300)
+            messages.add(Pair(text, true))
+            messages.add(Pair(offlineResponse.replyText, false))
+            viewModel.saveCachedAnswer(text, offlineResponse.replyText)
+            isTyping = false
         } else {
-            // Online Mode using Gemini API
-            val currentSteps = steps
-            val targetSteps = target
-            val weatherDetails = if (weatherState != null) {
-                "درجة الحرارة الحالية: ${weatherState?.temperature}°م، الرطوبة: ${weatherState?.humidity}%، حالة الجو: ${weatherState?.description}"
-            } else {
-                "الطقس الحالي غير متاح"
-            }
-
-            val systemPrompt = """
-                أنتِ "$companionName"، رفيقة وصديقة مقربة ذكية، دافئة، وحنونة جداً للمرأة العربية. تتحدثين بلهجة لطيفة، متعاطفة للغاية، ومفعمة بالحب والرعاية، وتستخدمين عبارات رقيقة مثل "يا روحي"، "يا صديقتي الغالية"، "يا عزيزتي"، "يا قلبي".
-                
-                بيانات المستخدمة الحالية المتوفرة لديكِ للرد بدقة ومساعدتها:
-                - الخطوات اليومية للمستخدمة: $currentSteps خطوة من هدف $targetSteps خطوة.
-                - الطقس الفعلي الحالي: $weatherDetails (إذا كان الجو حاراً ورطباً، ذكّريها بلطف بشرب المزيد من الماء وترطيب جسمها).
-                - مرحلة تتبعها الحالية: ${if (pregState != null) "حامل (في الثلث ${viewModel.getPregnancyProgression()?.trimester ?: 1})" else "تتبع الدورة والخصوبة (طور ${viewModel.getCurrentCyclePhase().phaseArabic})"}
-                
-                تساعدين المستخدمة في:
-                1. السؤال عن أعراضها وتقديم نصائح صحية ومريحة مخصصة بأسلوب دافئ، مشجعةً إياها على المشي المعتدل والراحة عند الحاجة بناءً على طورها المذكور أعلاه وعدد خطواتها والطقس.
-                2. مرافقتها خطوة بخطوة وإرشادها.
-                3. تذكيرها بشرب الماء والراحة وتغذية جسدها بالمعادن اللازمة خصوصاً في الأجواء الحارة والرطبة.
-                4. إذا كانت المستخدمة حاملاً، يجب عليكِ بشكل استباقي وودود للغاية من وقت لآخر أن تسأليها عن "الوحم" وتشاركيها مشاعرها وتسأليها بدلال: "اتوحمتِ على إيه النهاردة يا روحي؟" كنوع من المشاركة الوجدانية الممتعة والتفاعل الاجتماعي.
-                5. إذا صرحت لكِ بما توحمت عليه، تفاعلي معها بحب شديد وبطريقة فكاهية ودافئة، وحللي لها رغبتها طبياً بشكل بسيط (مثل ارتباط الحوادق بالسوائل والأملاح، والحلويات بالطاقة السريعة)، واقترحي عليها تصفح "سجل الوحم" في التطبيق.
-
-                مهم جداً (التسجيل والتحديث التلقائي للملف):
-                إذا كانت هذه هي بداية التعارف ولم تحدد المستخدمة اسمها أو طورها بعد، اسأليها بلطف شديد عن اسمها وطور تتبعها الحالي (متابعة الدورة والخصوبة أو تتبع الحمل).
-                بمجرد أن تخبركِ بالاسم أو مرحلة التتبع، يجب أن ترفقي ردكِ الدافئ بكود JSON مخفي تماماً في نهاية الإجابة يبدأ بدقة بـ [DATA_UPDATE] (بدون أي أسطر فارغة قبله)، وتضعي فيه البيانات التي صرحت بها لتحديث داتا التطبيق تلقائياً كالتالي:
-                [DATA_UPDATE]{"motherName": "الاسم المستخرج", "userPhase": "period أو pregnancy أو postpartum", "babyName": "اسم الجنين إن صرحت به"}
-
-                إذا صرحت المستخدمة عن أعراض تشعر بها مثل (صداع، مغص، غثيان، ألم ظهر، تقلبات مزاج)، تعاطفي معها بقوة وقدمي لها توجيهات منزلية طبيعية للراحة والغذاء المتوازن والترطيب.
-                تحدثي دائماً باللغة العربية الدافئة.
-            """.trimIndent()
-            
+            // Online Cloud Mode
+            messages.add(Pair(text, true))
+            isTyping = true
             try {
-                val response = GeminiService.generateContent(text, systemPrompt)
+                val response = GeminiService.generateContent(text, systemPrompt, historyPairs)
                 isTyping = false
                 
                 if (response.contains("[DATA_UPDATE]")) {
                     val parts = response.split("[DATA_UPDATE]")
                     val cleanText = parts[0].trim()
-                    val jsonPart = parts.getOrNull(1)?.trim()
-                    
                     messages.add(Pair(cleanText, false))
-                    viewModel.saveCachedAnswer(text, cleanText) // Cache the result
-                    
-                    if (!jsonPart.isNullOrEmpty()) {
-                        try {
-                           val json = JSONObject(jsonPart)
-                           val mName = if (json.has("motherName")) json.optString("motherName") else null
-                           val bName = if (json.has("babyName")) json.optString("babyName") else null
-                           val uPhase = if (json.has("userPhase")) json.optString("userPhase") else null
-                           
-                           viewModel.setMotherProfile(
-                               motherName = mName,
-                               babyName = bName,
-                               userPhase = uPhase,
-                               lastPeriodDate = null,
-                               preWeight = null,
-                               height = null
-                           )
-                        } catch (e: Exception) {
-                            Log.e("JouriChat", "Failed to parse json metadata", e)
-                        }
-                    }
+                    viewModel.saveCachedAnswer(text, cleanText)
                 } else {
                     messages.add(Pair(response, false))
-                    viewModel.saveCachedAnswer(text, response) // Cache the result
+                    viewModel.saveCachedAnswer(text, response)
                 }
             } catch (e: Exception) {
-                // Network failed, switch to offline mode automatically
                 isOfflineMode = true
-                messages.add(Pair("يا روحي، لم أستطع الاتصال بالذكاء الاصطناعي السحابي الآن. قمتُ بتفعيل الوضع المحلي الآمن (أوفلاين) فوراً لأبقى بجانبكِ بدون انقطاع! 📴🌸", false))
-                
-                val phaseInfo = viewModel.getCurrentCyclePhase()
-                val waterLog = viewModel.todayWaterLogState.value?.amountMl ?: 0
-                val offlineResp = OfflineJouriEngine.getResponse(
-                    userInput = text,
-                    motherName = pregState?.motherName,
-                    phaseInfo = phaseInfo,
-                    pregnancyState = pregState,
-                    todayWaterLogged = waterLog
-                )
-                messages.add(Pair(offlineResp.replyText, false))
-                viewModel.saveCachedAnswer(text, offlineResp.replyText) // Cache the result
+                messages.add(Pair(offlineResponse.replyText, false))
+                viewModel.saveCachedAnswer(text, offlineResponse.replyText)
                 isTyping = false
             }
         }
@@ -9520,7 +8845,7 @@ fun CycleRegularityChart(cycleLengths: List<Int>, avgCycleLength: Int) {
             for (idx in displayLengths.indices) {
                 val days = displayLengths[idx]
                 Text(
-                    text = "$days يوم",
+                    text = formatArabicDays(days),
                     color = if (isPlaceholder) SoftTheme.SoftGray.copy(alpha = 0.7f) else SoftTheme.TextWhite,
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Bold,
@@ -9530,7 +8855,7 @@ fun CycleRegularityChart(cycleLengths: List<Int>, avgCycleLength: Int) {
         }
 
         Text(
-            text = "المعدل: $avgCycleLength يوم",
+            text = "المعدل: ${formatArabicDays(avgCycleLength)}",
             color = SoftTheme.MintTeal,
             style = MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.Bold,
@@ -9998,396 +9323,8 @@ fun JouriWellnessNotificationCard(
 // ==========================================
 // 1. محلل النوم الذكي (Smart Sleep Analyzer)
 // ==========================================
-@Composable
-fun SleepAnalyzerScreen(viewModel: WomanCompanionViewModel) {
-    val sleepLogs by viewModel.allSleepLogsState.collectAsStateWithLifecycle()
-    var showAddDialog by remember { mutableStateOf(false) }
+// --- SleepAnalyzerScreen moved to SleepAnalyzerScreen.kt ---
 
-    // Sleep recording states
-    var startHoursAgo by remember { mutableStateOf(8f) } // Duration since start of sleep
-    var sleepDurationHours by remember { mutableStateOf(8f) }
-    var qualityScore by remember { mutableStateOf(80f) }
-    var deepSleepPercent by remember { mutableStateOf(25f) }
-    var lightSleepPercent by remember { mutableStateOf(55f) }
-    var remSleepPercent by remember { mutableStateOf(20f) }
-    var awakeningsCount by remember { mutableStateOf(1f) }
-    var sleepNotes by remember { mutableStateOf("") }
-
-    val context = LocalContext.current
-
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(bottom = 80.dp)
-    ) {
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                shape = RoundedCornerShape(24.dp)
-            ) {
-                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        text = "محلل ومراقب النوم الذكي 🌙💤",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = SoftTheme.SoftPink,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "يتأثر نمط نومك بالتغيرات الهرمونية والجسدية خلال فترة الحمل والنفاس. يساعدك المحلل الذكي على تتبع صحة نومك وجرد جودته للحفاظ على نشاطك وصحة جنينك.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = SoftTheme.SoftGray
-                    )
-                    
-                    Button(
-                        onClick = { showAddDialog = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
-                        modifier = Modifier.fillMaxWidth().testTag("add_sleep_log_button")
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null, tint = SoftTheme.TextWhite)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("تسجيل نوم الليلة الماضية ✍️", color = SoftTheme.TextWhite, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-
-        // Pregnancy sleep safe tips
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = SoftTheme.DeepSlate.copy(alpha = 0.5f)),
-                shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.dp, SoftTheme.SoftPink.copy(alpha = 0.15f))
-            ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("💡 نصيحة النوم الصحي للحوامل والنفاس:", fontWeight = FontWeight.Bold, color = SoftTheme.SoftTeal)
-                    Text(
-                        text = "• يُنصح بشدة بالنوم على الجانب الأيسر (SOS) لتحسين تدفق الدم والتروية للجنين والرحم والكلية.\n" +
-                               "• استخدمي وسائد مخصصة للحمل لتسديد الدعم لظهرك والبطن.\n" +
-                               "• تجنبي شرب الكافيين والمنبهات قبل موعد النوم بـ 6 ساعات على الأقل.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = SoftTheme.SoftGray
-                    )
-                }
-            }
-        }
-
-        if (sleepLogs.isEmpty()) {
-            item {
-                Box(
-                    modifier = Modifier.fillMaxWidth().padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("😴", fontSize = 48.sp)
-                        Text("لا يوجد سجلات نوم مسجلة بعد.", color = SoftTheme.SoftGray, fontWeight = FontWeight.Bold)
-                        Text("سجلي نومك لتبدأ جوري في تحليل صحتك الحيوية.", color = SoftTheme.SoftGray, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
-        } else {
-            // General Stats Card
-            item {
-                val avgQuality = sleepLogs.map { it.qualityScore }.average().toInt()
-                val avgDuration = sleepLogs.map { (it.endTime - it.startTime) / (1000f * 60 * 60) }.average()
-                
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("معدل الجودة", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
-                            Text("$avgQuality%", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = SoftTheme.SoftPink)
-                        }
-                        Divider(modifier = Modifier.height(40.dp).width(1.dp), color = SoftTheme.SoftGray.copy(alpha = 0.3f))
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("معدل الساعات", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
-                            Text(String.format("%.1f س", avgDuration), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = SoftTheme.SoftTeal)
-                        }
-                        Divider(modifier = Modifier.height(40.dp).width(1.dp), color = SoftTheme.SoftGray.copy(alpha = 0.3f))
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("إجمالي الليالي", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
-                            Text("${sleepLogs.size}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite)
-                        }
-                    }
-                }
-            }
-
-            item {
-                Text("سجل الليالي السابقة:", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite)
-            }
-
-            items(sleepLogs) { log ->
-                val durationMs = log.endTime - log.startTime
-                val durationHours = durationMs / (1000f * 60 * 60)
-                
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(
-                                    text = formatGregorianDate(log.date),
-                                    fontWeight = FontWeight.Bold,
-                                    color = SoftTheme.TextWhite
-                                )
-                                Text(
-                                    text = "${formatTime(log.startTime)} - ${formatTime(log.endTime)}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = SoftTheme.SoftGray
-                                )
-                            }
-                            
-                            Box(
-                                modifier = Modifier
-                                    .background(
-                                        if (log.qualityScore >= 80) SoftTheme.SoftTeal.copy(alpha = 0.15f)
-                                        else SoftTheme.SoftPink.copy(alpha = 0.15f),
-                                        RoundedCornerShape(8.dp)
-                                    )
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                            ) {
-                                Text(
-                                    text = "جودة ${log.qualityScore}%",
-                                    color = if (log.qualityScore >= 80) SoftTheme.SoftTeal else SoftTheme.SoftPink,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp
-                                )
-                            }
-                        }
-
-                        // Duration bar
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(Icons.Default.Star, contentDescription = null, tint = SoftTheme.SoftPink, modifier = Modifier.size(16.dp))
-                            Text(
-                                text = String.format("مدة النوم الكلية: %.1f ساعة", durationHours),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = SoftTheme.TextWhite
-                            )
-                        }
-
-                        // Deep/Light Sleep distribution if entered
-                        if (log.deepSleepMinutes > 0 || log.lightSleepMinutes > 0) {
-                            val totalMin = log.deepSleepMinutes + log.lightSleepMinutes + log.remSleepMinutes
-                            if (totalMin > 0) {
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(
-                                            text = "عميق: ${log.deepSleepMinutes}د ( ${(log.deepSleepMinutes * 100 / totalMin)}%)",
-                                            fontSize = 11.sp,
-                                            color = SoftTheme.SoftTeal
-                                        )
-                                        Text(
-                                            text = "خفيف: ${log.lightSleepMinutes}د ( ${(log.lightSleepMinutes * 100 / totalMin)}%)",
-                                            fontSize = 11.sp,
-                                            color = SoftTheme.SoftGray
-                                        )
-                                        if (log.remSleepMinutes > 0) {
-                                            Text(
-                                                text = "حركة سريعة: ${log.remSleepMinutes}د",
-                                                fontSize = 11.sp,
-                                                color = SoftTheme.SoftPink
-                                            )
-                                        }
-                                    }
-                                    
-                                    // Custom visual distribution bar
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(8.dp)
-                                            .background(SoftTheme.DeepSlate, RoundedCornerShape(4.dp))
-                                    ) {
-                                        val deepWeight = log.deepSleepMinutes.toFloat() / totalMin
-                                        val lightWeight = log.lightSleepMinutes.toFloat() / totalMin
-                                        val remWeight = log.remSleepMinutes.toFloat() / totalMin
-                                        
-                                        if (deepWeight > 0) {
-                                            Box(modifier = Modifier.weight(deepWeight).fillMaxHeight().background(SoftTheme.SoftTeal, RoundedCornerShape(topStart = 4.dp, bottomStart = 4.dp)))
-                                        }
-                                        if (lightWeight > 0) {
-                                            Box(modifier = Modifier.weight(lightWeight).fillMaxHeight().background(SoftTheme.SoftGray))
-                                        }
-                                        if (remWeight > 0) {
-                                            Box(modifier = Modifier.weight(remWeight).fillMaxHeight().background(SoftTheme.SoftPink, RoundedCornerShape(topEnd = 4.dp, bottomEnd = 4.dp)))
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("الاستيقاظ: ", fontSize = 11.sp, color = SoftTheme.SoftGray)
-                                Text("${log.awakeningsCount} مرات", fontSize = 11.sp, color = SoftTheme.TextWhite, fontWeight = FontWeight.Bold)
-                            }
-                            
-                            IconButton(
-                                onClick = { viewModel.deleteSleepLog(log) },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(Icons.Default.Delete, contentDescription = "حذف", tint = SoftTheme.SoftPink.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
-                            }
-                        }
-
-                        if (!log.notes.isNullOrBlank()) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(SoftTheme.DeepSlate, RoundedCornerShape(8.dp))
-                                    .padding(8.dp)
-                            ) {
-                                Text(text = "✍️ ملاحظات: ${log.notes}", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if (showAddDialog) {
-        AlertDialog(
-            onDismissRequest = { showAddDialog = false },
-            title = { Text("تسجيل نوم الليلة الماضية 💤", fontWeight = FontWeight.Bold) },
-            text = {
-                Column(
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    Text("كم ساعة نمتِ الليلة الماضية؟", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Slider(
-                            value = sleepDurationHours,
-                            onValueChange = { sleepDurationHours = it },
-                            valueRange = 1f..16f,
-                            modifier = Modifier.weight(1f),
-                            colors = SliderDefaults.colors(thumbColor = SoftTheme.SoftPink, activeTrackColor = SoftTheme.SoftPink)
-                        )
-                        Text(text = String.format("%.1f س", sleepDurationHours), fontWeight = FontWeight.Bold, color = SoftTheme.SoftTeal)
-                    }
-
-                    Text("تقييم جودة النوم وعمقه:", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Slider(
-                            value = qualityScore,
-                            onValueChange = { qualityScore = it },
-                            valueRange = 10f..100f,
-                            modifier = Modifier.weight(1f),
-                            colors = SliderDefaults.colors(thumbColor = SoftTheme.SoftTeal, activeTrackColor = SoftTheme.SoftTeal)
-                        )
-                        Text(text = "${qualityScore.toInt()}%", fontWeight = FontWeight.Bold, color = SoftTheme.SoftPink)
-                    }
-
-                    Text("توزيع النوم (اختياري بالدقائق):", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite)
-                    
-                    // Deep sleep slider
-                    Column {
-                        Text("النوم العميق (موصى به > ٢٠%): ${deepSleepPercent.toInt()} دقيقة", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
-                        Slider(
-                            value = deepSleepPercent,
-                            onValueChange = { deepSleepPercent = it },
-                            valueRange = 0f..240f,
-                            colors = SliderDefaults.colors(thumbColor = SoftTheme.SoftTeal, activeTrackColor = SoftTheme.SoftTeal)
-                        )
-                    }
-
-                    // Light sleep slider
-                    Column {
-                        Text("النوم الخفيف: ${lightSleepPercent.toInt()} دقيقة", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
-                        Slider(
-                            value = lightSleepPercent,
-                            onValueChange = { lightSleepPercent = it },
-                            valueRange = 0f..480f,
-                            colors = SliderDefaults.colors(thumbColor = SoftTheme.SoftGray, activeTrackColor = SoftTheme.SoftGray)
-                        )
-                    }
-
-                    // REM sleep
-                    Column {
-                        Text("نوم حركة العين السريعة (الأحلام): ${remSleepPercent.toInt()} دقيقة", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
-                        Slider(
-                            value = remSleepPercent,
-                            onValueChange = { remSleepPercent = it },
-                            valueRange = 0f..180f,
-                            colors = SliderDefaults.colors(thumbColor = SoftTheme.SoftPink, activeTrackColor = SoftTheme.SoftPink)
-                        )
-                    }
-
-                    Column {
-                        Text("عدد مرات الاستيقاظ: ${awakeningsCount.toInt()} مرات", style = MaterialTheme.typography.bodySmall, color = SoftTheme.TextWhite)
-                        Slider(
-                            value = awakeningsCount,
-                            onValueChange = { awakeningsCount = it },
-                            valueRange = 0f..10f,
-                            colors = SliderDefaults.colors(thumbColor = SoftTheme.SoftPink, activeTrackColor = SoftTheme.SoftPink)
-                        )
-                    }
-
-                    OutlinedTextField(
-                        value = sleepNotes,
-                        onValueChange = { sleepNotes = it },
-                        label = { Text("ملاحظات النوم (مثال: شربت يانسون دافئ، قلق خفيف)") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val durationMs = (sleepDurationHours * 60 * 60 * 1000).toLong()
-                        val endTime = System.currentTimeMillis()
-                        val startTime = endTime - durationMs
-                        viewModel.addSleepLog(
-                            startTime = startTime,
-                            endTime = endTime,
-                            qualityScore = qualityScore.toInt(),
-                            deepSleepMin = deepSleepPercent.toInt(),
-                            lightSleepMin = lightSleepPercent.toInt(),
-                            remSleepMin = remSleepPercent.toInt(),
-                            awakenings = awakeningsCount.toInt(),
-                            notes = sleepNotes.ifBlank { null }
-                        )
-                        showAddDialog = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink)
-                ) {
-                    Text("حفظ السجل 💾", color = SoftTheme.TextWhite)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAddDialog = false }) {
-                    Text("إلغاء", color = SoftTheme.SoftPink)
-                }
-            }
-        )
-    }
-}
-
-// ==========================================
 // 2. ربط ومشاركة الشريك (Companion Sync Link)
 // ==========================================
 @Composable
@@ -10962,7 +9899,7 @@ fun HomePharmacyScreen(viewModel: WomanCompanionViewModel) {
                             modifier = Modifier.weight(1f),
                             colors = SliderDefaults.colors(thumbColor = SoftTheme.SoftPink, activeTrackColor = SoftTheme.SoftPink)
                         )
-                        Text("${expiryDaysOffset.toInt()} يوم", fontWeight = FontWeight.Bold, color = SoftTheme.SoftTeal, fontSize = 12.sp)
+                        Text(formatArabicDays(expiryDaysOffset.toInt()), fontWeight = FontWeight.Bold, color = SoftTheme.SoftTeal, fontSize = 12.sp)
                     }
 
                     Text("مستوى الأمان للأم والطفل:", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite)
@@ -11469,11 +10406,7 @@ fun NewFeaturesUpdatesBanner(
     viewModel: WomanCompanionViewModel,
     onNavigateToTab: (Int) -> Unit
 ) {
-    val context = LocalContext.current
-    val sharedPrefs = remember { context.getSharedPreferences("jouri_behavior_prefs", android.content.Context.MODE_PRIVATE) }
-    var isDismissed by remember {
-        mutableStateOf(sharedPrefs.getBoolean("new_updates_banner_dismissed_v2", false))
-    }
+    val isDismissed by viewModel.isUpdatesBannerDismissed.collectAsState()
 
     if (isDismissed) return
 
@@ -11513,8 +10446,7 @@ fun NewFeaturesUpdatesBanner(
                 }
                 IconButton(
                     onClick = {
-                        isDismissed = true
-                        sharedPrefs.edit().putBoolean("new_updates_banner_dismissed_v2", true).apply()
+                        viewModel.dismissUpdatesBanner()
                     },
                     modifier = Modifier.size(32.dp)
                 ) {

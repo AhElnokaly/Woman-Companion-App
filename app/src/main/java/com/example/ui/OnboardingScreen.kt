@@ -491,7 +491,7 @@ fun StepPersonalInfo(
                         val calendar = Calendar.getInstance().apply {
                             if (birthDateMs != null) timeInMillis = birthDateMs
                         }
-                        DatePickerDialog(
+                        val dateDialog = DatePickerDialog(
                             context,
                             { _, y, m, d ->
                                 val cal = Calendar.getInstance().apply {
@@ -508,7 +508,9 @@ fun StepPersonalInfo(
                             calendar.get(Calendar.YEAR),
                             calendar.get(Calendar.MONTH),
                             calendar.get(Calendar.DAY_OF_MONTH)
-                        ).show()
+                        )
+                        dateDialog.datePicker.maxDate = System.currentTimeMillis()
+                        dateDialog.show()
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -851,7 +853,7 @@ fun StepCyclePregnancy(
                         val calendar = Calendar.getInstance().apply {
                             if (lastPeriodDateMs != null) timeInMillis = lastPeriodDateMs
                         }
-                        DatePickerDialog(
+                        val dateDialog = DatePickerDialog(
                             context,
                             { _, y, m, d ->
                                 val cal = Calendar.getInstance().apply {
@@ -872,7 +874,10 @@ fun StepCyclePregnancy(
                             calendar.get(Calendar.YEAR),
                             calendar.get(Calendar.MONTH),
                             calendar.get(Calendar.DAY_OF_MONTH)
-                        ).show()
+                        )
+                        dateDialog.datePicker.maxDate = System.currentTimeMillis()
+                        dateDialog.datePicker.minDate = System.currentTimeMillis() - 300L * 24 * 60 * 60 * 1000
+                        dateDialog.show()
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -921,7 +926,7 @@ fun StepCyclePregnancy(
                         val calendar = Calendar.getInstance().apply {
                             if (lastPeriodEndDateMs != null) timeInMillis = lastPeriodEndDateMs
                         }
-                        DatePickerDialog(
+                        val dateDialog = DatePickerDialog(
                             context,
                             { _, y, m, d ->
                                 val cal = Calendar.getInstance().apply {
@@ -938,7 +943,10 @@ fun StepCyclePregnancy(
                             calendar.get(Calendar.YEAR),
                             calendar.get(Calendar.MONTH),
                             calendar.get(Calendar.DAY_OF_MONTH)
-                        ).show()
+                        )
+                        dateDialog.datePicker.maxDate = System.currentTimeMillis()
+                        dateDialog.datePicker.minDate = System.currentTimeMillis() - 300L * 24 * 60 * 60 * 1000
+                        dateDialog.show()
                     },
                     modifier = Modifier
                         .fillMaxWidth()

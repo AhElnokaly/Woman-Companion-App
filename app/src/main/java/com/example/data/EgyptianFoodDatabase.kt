@@ -2251,3 +2251,58 @@ object EgyptianFoodRepository {
         return detected
     }
 }
+
+/**
+ * Static reference table for trimester-appropriate nutritional targets.
+ * Source: Clinical guidelines for maternal nutrition during pregnancy.
+ * (Flagged in remediation-state.md for medical review by Ahmed).
+ */
+data class TrimesterNutrientTarget(
+    val trimester: Int,
+    val description: String,
+    val extraCaloriesKcal: Int, // e.g. 0 in T1, +340 in T2, +450 in T3
+    val totalCaloriesTargetKcal: Int, // e.g. 2000 in T1, 2340 in T2, 2450 in T3
+    val maxSodiumMg: Double, // 2300.0 mg ceiling limit
+    val targetIronMg: Double, // 27.0 mg in T1/T2, 30.0 mg in T3
+    val targetFolicAcidMcg: Double, // 600.0 mcg
+    val targetProteinG: Double // 75.0 g
+)
+
+object PregnancyNutritionReference {
+    val trimesterTargets = mapOf(
+        1 to TrimesterNutrientTarget(
+            trimester = 1,
+            description = "الثلث الأول (أسابيع 1-12): التركيز على تثبيت الحمل وتجنب الغثيان",
+            extraCaloriesKcal = 0,
+            totalCaloriesTargetKcal = 2000,
+            maxSodiumMg = 2300.0,
+            targetIronMg = 27.0,
+            targetFolicAcidMcg = 600.0,
+            targetProteinG = 75.0
+        ),
+        2 to TrimesterNutrientTarget(
+            trimester = 2,
+            description = "الثلث الثاني (أسابيع 13-26): النمو السريع للأنسجة والجنين (+340 د/يوم)",
+            extraCaloriesKcal = 340,
+            totalCaloriesTargetKcal = 2340,
+            maxSodiumMg = 2300.0,
+            targetIronMg = 27.0,
+            targetFolicAcidMcg = 600.0,
+            targetProteinG = 75.0
+        ),
+        3 to TrimesterNutrientTarget(
+            trimester = 3,
+            description = "الثلث الثالث (أسابيع 27-40): اكتمال نمو الجنين وبناء المخازن (+450 د/يوم)",
+            extraCaloriesKcal = 450,
+            totalCaloriesTargetKcal = 2450,
+            maxSodiumMg = 2300.0,
+            targetIronMg = 30.0,
+            targetFolicAcidMcg = 600.0,
+            targetProteinG = 80.0
+        )
+    )
+
+    fun getTargetForTrimester(trimester: Int): TrimesterNutrientTarget {
+        return trimesterTargets[trimester.coerceIn(1, 3)] ?: trimesterTargets[1]!!
+    }
+}

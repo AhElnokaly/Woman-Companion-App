@@ -1,3 +1,17 @@
 <resources>
     <string name="app_name">رفيق المرأة</string>
+    <string name="exact_alarm_permission_title">تنبيه التذكيرات الدقيقة ⏰</string>
+    <string name="exact_alarm_permission_desc">عشان جوري تقدر تفكّرك بمواعيد دوائك، محتاجين إذن التنبيهات الدقيقة.</string>
+    <string name="exact_alarm_permission_button">تفعيل الإذن</string>
+    <string name="close_action">إغلاق</string>
+    <string name="tab_dashboard">الرئيسية</string>
+    <string name="tab_period">الدورة</string>
+    <string name="tab_nutrition">الغذاء</string>
+    <string name="tab_symptoms">الأعراض</string>
+    <string name="tab_tools">الأدوات</string>
+    <string name="companion_fab_label">%1$s صديقتكِ الذكية</string>
+    <string name="medication_reminder_title">تذكير بالدواء 💊</string>
+    <string name="appointment_reminder_title">تذكير بموعد الطبيب 🩺</string>
+    <string name="step_counter_channel_name">عداد الخطوات</string>
+    <string name="step_counter_channel_desc">مراقبة وتسجيل عدد الخطوات اليومية تلقائياً</string>
 </resources>

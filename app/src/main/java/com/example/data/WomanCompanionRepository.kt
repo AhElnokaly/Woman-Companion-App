@@ -6,9 +6,13 @@ class WomanCompanionRepository(private val dao: WomanCompanionDao) {
 
     // --- Pregnancy ---
     val pregnancyFlow: Flow<PregnancyEntity?> = dao.getPregnancyFlow()
+    val allPregnanciesFlow: Flow<List<PregnancyEntity>> = dao.getAllPregnanciesFlow()
     suspend fun getPregnancy(): PregnancyEntity? = dao.getPregnancy()
-    suspend fun savePregnancy(pregnancy: PregnancyEntity) = dao.insertOrUpdatePregnancy(pregnancy)
+    suspend fun getAllPregnancies(): List<PregnancyEntity> = dao.getAllPregnancies()
+    suspend fun deactivateAllPregnancies() = dao.deactivateAllPregnancies()
+    suspend fun savePregnancy(pregnancy: PregnancyEntity): Long = dao.insertOrUpdatePregnancy(pregnancy)
     suspend fun deletePregnancy() = dao.deletePregnancy()
+    suspend fun deletePregnancyById(id: Int) = dao.deletePregnancyById(id)
 
     // --- Period Logs ---
     val allPeriodLogsFlow: Flow<List<PeriodLog>> = dao.getAllPeriodLogsFlow()
@@ -32,7 +36,7 @@ class WomanCompanionRepository(private val dao: WomanCompanionDao) {
     // --- Medications ---
     val allMedicationsFlow: Flow<List<MedicationLog>> = dao.getAllMedicationsFlow()
     val activeMedicationsFlow: Flow<List<MedicationLog>> = dao.getActiveMedicationsFlow()
-    suspend fun insertMedication(medication: MedicationLog) = dao.insertMedication(medication)
+    suspend fun insertMedication(medication: MedicationLog): Long = dao.insertMedication(medication)
     suspend fun deleteMedication(medication: MedicationLog) = dao.deleteMedication(medication)
 
     // --- Symptoms ---
@@ -57,7 +61,7 @@ class WomanCompanionRepository(private val dao: WomanCompanionDao) {
 
     // --- Appointments ---
     val allAppointmentsFlow: Flow<List<Appointment>> = dao.getAllAppointmentsFlow()
-    suspend fun insertAppointment(appointment: Appointment) = dao.insertAppointment(appointment)
+    suspend fun insertAppointment(appointment: Appointment): Long = dao.insertAppointment(appointment)
     suspend fun deleteAppointment(appointment: Appointment) = dao.deleteAppointment(appointment)
 
     // --- Journal ---
@@ -124,6 +128,7 @@ class WomanCompanionRepository(private val dao: WomanCompanionDao) {
 
     // --- تتبع نمو الجنين (Fetal Growth Tracker) ---
     val allFetalGrowthLogsFlow: Flow<List<FetalGrowthLog>> = dao.getAllFetalGrowthLogsFlow()
+    fun getFetalGrowthLogsForPregnancyFlow(pregnancyId: Int): Flow<List<FetalGrowthLog>> = dao.getFetalGrowthLogsForPregnancyFlow(pregnancyId)
     suspend fun insertFetalGrowthLog(log: FetalGrowthLog) = dao.insertFetalGrowthLog(log)
     suspend fun deleteFetalGrowthLog(log: FetalGrowthLog) = dao.deleteFetalGrowthLog(log)
     suspend fun clearFetalGrowthLogs() = dao.clearFetalGrowthLogs()

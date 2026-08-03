@@ -58,7 +58,8 @@ data class JouriExercise(
     val goal: String,
     val stepDetails: List<JouriStep>,
     val benefits: List<String>,
-    val safetyWarning: String
+    val safetyWarning: String,
+    val recommendedTrimesters: Set<Int> = setOf(1, 2, 3)
 )
 
 @Composable
@@ -71,6 +72,11 @@ fun FitnessScreen(
     var activeTab by remember { mutableStateOf("pregnancy") }
     var selectedExerciseForTimer by remember { mutableStateOf<JouriExercise?>(null) }
     var selectedExerciseDetail by remember { mutableStateOf<JouriExercise?>(null) }
+
+    val pregnancyProgression = viewModel.getPregnancyProgression()
+    var selectedTrimesterFilter by remember(pregnancyProgression?.trimester) {
+        mutableStateOf(pregnancyProgression?.trimester ?: 0) // 0 = All trimesters
+    }
 
     // Reconstruct specialized, medically guided maternal fitness routines
     val exercises = remember {
@@ -94,11 +100,32 @@ fun FitnessScreen(
                     "تحسين تدفق الدورة الدموية في منطقة الحوض.",
                     "تسريع الاستشفاء بعد الولادة الطبيعية."
                 ),
-                safetyWarning = "احرصي على إفراغ المثانة قبل البدء وتجنبي كتم الأنفاس."
+                safetyWarning = "احرصي على إفراغ المثانة قبل البدء وتجنبي كتم الأنفاس.",
+                recommendedTrimesters = setOf(1, 2, 3)
+            ),
+            JouriExercise(
+                id = "cat_cow_tri1",
+                name = "تمرين القطة والبقرة المهدئ",
+                category = "pregnancy",
+                durationSeconds = 90,
+                emoji = "🐈",
+                goal = "الهدف: مرونة العمود الفقري وتهدئة أسفل الظهر",
+                description = "تمرين لطيف وآمن جداً في المرحلة الأولى والثانية من الحمل لتخفيف تيبّس الظهر وتحسين مدة التنفس العميق.",
+                stepDetails = listOf(
+                    JouriStep("الخطوة الأولى:", "الارتكاز على اليدين والركبتين باستواء", null, "sit"),
+                    JouriStep("الخطوة الثانية:", "رفع الرأس بلطف مع زفير مريح", "5 ثوانٍ", "stretch"),
+                    JouriStep("الخطوة الثالثة:", "تقويس الظهر للأعلى شهيقاً", "5 ثوانٍ", "relax")
+                ),
+                benefits = listOf(
+                    "تخفيف آلام أعلى وأسفل الظهر المبكرة.",
+                    "تنشيط الدورة الدموية للجنين والرحم."
+                ),
+                safetyWarning = "تجنبي تقويس الظهر بشدة أو الشعور بالدوار.",
+                recommendedTrimesters = setOf(1, 2)
             ),
             JouriExercise(
                 id = "pelvic_forward",
-                name = "تمرين الامام",
+                name = "تمرين إمالة الحوض",
                 category = "pregnancy",
                 durationSeconds = 100,
                 emoji = "🧘‍♀️",
@@ -114,11 +141,12 @@ fun FitnessScreen(
                     "تنشيط وتقوية العضلات العميقة للجدار البطني.",
                     "مساعدة الجنين في اتخاذ الوضعية المثالية للولادة."
                 ),
-                safetyWarning = "تجنبي المبالغة في تقويس الظهر لأسفل لمنع التشنج."
+                safetyWarning = "تجنبي المبالغة في تقويس الظهر لأسفل لمنع التشنج.",
+                recommendedTrimesters = setOf(2, 3)
             ),
             JouriExercise(
                 id = "gentiad",
-                name = "تمرين الجنتياد",
+                name = "تمرين الجنتياد (تفريج الحوض)",
                 category = "pregnancy",
                 durationSeconds = 100,
                 emoji = "🍃",
@@ -134,7 +162,28 @@ fun FitnessScreen(
                     "إرخاء عضلات الفخذ الداخلية الضيقة.",
                     "تحسين توازن الجسم العقلي والجسدي والهدوء الداخلي."
                 ),
-                safetyWarning = "لا تقومي بهز الركبتين بعنف، بل دعي التمدد يتم تدريجياً وبسلاسة."
+                safetyWarning = "لا تقومي بهز الركبتين بعنف، بل دعي التمدد يتم تدريجياً وبسلاسة.",
+                recommendedTrimesters = setOf(2, 3)
+            ),
+            JouriExercise(
+                id = "squats_birth_prep",
+                name = "تمرين القرفصاء المدعوم للولادة",
+                category = "pregnancy",
+                durationSeconds = 120,
+                emoji = "🧱",
+                goal = "الهدف: فتح الحوض وتمهيد نزول الجنين",
+                description = "مخصص بشكل خاص للثلث الثالث من الحمل لمساعدة رأس الجنين على الاستقرار في الحوض وتسهيل مخاض الولادة.",
+                stepDetails = listOf(
+                    JouriStep("الخطوة الأولى:", "الاستناد على كرسي متين والنزول ببطء", null, "sit"),
+                    JouriStep("الخطوة الثانية:", "الثبات في وضعية القرفصاء المنخفضة", "10 ثوانٍ", "hold"),
+                    JouriStep("الخطوة الثالثة:", "الارتفاع ببطء باستعمال عضلات الفخذين", "5 ثوانٍ", "relax")
+                ),
+                benefits = listOf(
+                    "زيادة اتساع قطر مخرج الحوض.",
+                    "تقوية عضلات الساقين والركبتين للولادة."
+                ),
+                safetyWarning = "ممنوع في حال وجود نزيف أو انخفاض المشيمة دون استشارة طبيبتك.",
+                recommendedTrimesters = setOf(3)
             ),
 
             // Postpartum Stage (بعد الولادة)
@@ -203,8 +252,15 @@ fun FitnessScreen(
         )
     }
 
-    val filteredExercises = remember(activeTab, exercises) {
-        exercises.filter { it.category == activeTab }
+    val filteredExercises = remember(activeTab, exercises, selectedTrimesterFilter) {
+        exercises.filter { ex ->
+            if (ex.category != activeTab) return@filter false
+            if (activeTab == "pregnancy" && selectedTrimesterFilter in 1..3) {
+                selectedTrimesterFilter in ex.recommendedTrimesters
+            } else {
+                true
+            }
+        }
     }
 
     var fitnessMainTab by remember { mutableStateOf("pedometer") } // default to showing the premium pedometer/walking tracker!
@@ -277,43 +333,107 @@ fun FitnessScreen(
             if (fitnessMainTab == "exercises") {
                 // High-fidelity Pill Tab Switcher (matches the screenshot beautifully)
                 item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF141921), RoundedCornerShape(24.dp))
-                        .padding(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    val tabs = listOf(
-                        "general" to "عام",
-                        "postpartum" to "بعد الولادة",
-                        "pregnancy" to "الحمل"
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF141921), RoundedCornerShape(24.dp))
+                            .padding(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        val tabs = listOf(
+                            "general" to "عام",
+                            "postpartum" to "بعد الولادة",
+                            "pregnancy" to "الحمل"
+                        )
 
-                    tabs.forEach { (key, label) ->
-                        val isSelected = activeTab == key
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(
-                                    if (isSelected) Color(0xFF38B2AC) else Color.Transparent
+                        tabs.forEach { (key, label) ->
+                            val isSelected = activeTab == key
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(
+                                        if (isSelected) Color(0xFF38B2AC) else Color.Transparent
+                                    )
+                                    .clickable { activeTab = key }
+                                    .padding(vertical = 12.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = label,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSelected) Color(0xFF141921) else Color(0xFF8F9CAE),
+                                    textAlign = TextAlign.Center
                                 )
-                                .clickable { activeTab = key }
-                                .padding(vertical = 12.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = label,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isSelected) Color(0xFF141921) else Color(0xFF8F9CAE),
-                                textAlign = TextAlign.Center
-                            )
+                            }
                         }
                     }
                 }
-            }
+
+                if (activeTab == "pregnancy") {
+                    item {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            if (pregnancyProgression != null) {
+                                Surface(
+                                    color = Color(0xFF38B2AC).copy(alpha = 0.15f),
+                                    shape = RoundedCornerShape(14.dp),
+                                    border = BorderStroke(1.dp, Color(0xFF38B2AC).copy(alpha = 0.4f))
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Text("✨", fontSize = 16.sp)
+                                        Text(
+                                            text = "أنتِ في الثلث ${pregnancyProgression.trimester} (الأسبوع ${pregnancyProgression.weeks}) — تم تصفية التمارين الآمنة والمناسبة لمرحلتكِ الحالية.",
+                                            fontSize = 11.sp,
+                                            color = SoftTheme.TextWhite,
+                                            lineHeight = 16.sp
+                                        )
+                                    }
+                                }
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                val triFilters = listOf(
+                                    0 to "الكل",
+                                    1 to "الثلث 1",
+                                    2 to "الثلث 2",
+                                    3 to "الثلث 3"
+                                )
+                                triFilters.forEach { (triKey, label) ->
+                                    val isSel = selectedTrimesterFilter == triKey
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(if (isSel) Color(0xFF38B2AC) else Color(0xFF141921))
+                                            .clickable { selectedTrimesterFilter = triKey }
+                                            .padding(vertical = 8.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = label,
+                                            fontSize = 11.sp,
+                                            fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (isSel) Color(0xFF141921) else SoftTheme.TextWhite
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
 
             // Beautiful Today's Suggested Exercise card with luminous green radial glow
             item {
@@ -467,18 +587,47 @@ fun FitnessScreen(
                                 textAlign = TextAlign.Right
                             )
                             Spacer(modifier = Modifier.height(6.dp))
-                            // Yellow/gold pill badge for duration
-                            Box(
-                                modifier = Modifier
-                                    .background(Color(0xFFFEFCBF), RoundedCornerShape(12.dp))
-                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = "${exercise.durationSeconds} ثانية",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF744210)
-                                )
+                                if (exercise.category == "pregnancy") {
+                                    val trisStr = exercise.recommendedTrimesters.sorted().joinToString("، ") { "ثلث $it" }
+                                    val matchesCurrent = pregnancyProgression != null && (pregnancyProgression.trimester in exercise.recommendedTrimesters)
+                                    Box(
+                                        modifier = Modifier
+                                            .background(
+                                                if (matchesCurrent) Color(0xFF38B2AC).copy(alpha = 0.2f) else SoftTheme.DeepSlate,
+                                                RoundedCornerShape(12.dp)
+                                            )
+                                            .border(
+                                                1.dp,
+                                                if (matchesCurrent) Color(0xFF38B2AC) else Color.Gray.copy(alpha = 0.3f),
+                                                RoundedCornerShape(12.dp)
+                                            )
+                                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = if (matchesCurrent) "✨ $trisStr" else trisStr,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (matchesCurrent) Color(0xFF38B2AC) else Color(0xFFA0AEC0)
+                                        )
+                                    }
+                                }
+                                // Yellow/gold pill badge for duration
+                                Box(
+                                    modifier = Modifier
+                                        .background(Color(0xFFFEFCBF), RoundedCornerShape(12.dp))
+                                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "${exercise.durationSeconds} ثانية",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF744210)
+                                    )
+                                }
                             }
                         }
 

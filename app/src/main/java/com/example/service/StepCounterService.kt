@@ -17,6 +17,7 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.MainActivity
+import com.example.R
 import com.example.data.AppDatabase
 import com.example.data.StepLog
 import java.util.Calendar
@@ -43,8 +44,10 @@ class StepCounterService : Service() {
     private var todaySteps = 0
 
     // Shared preferences key for robust step counting persistence
-    private val PREFS_NAME = "step_counter_prefs"
+    private val PREFS_NAME = "woman_companion_prefs"
     private val KEY_LAST_SENSOR_VALUE = "last_sensor_value"
+    private val KEY_DAY_START_SENSOR_VALUE = "day_start_sensor_value"
+    private val KEY_LAST_KNOWN_DAY = "last_known_day"
 
     private val stepListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent?) {
@@ -53,24 +56,53 @@ class StepCounterService : Service() {
                 Sensor.TYPE_STEP_COUNTER -> {
                     val currentSensorValue = event.values[0].toInt()
                     val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                    val lastSensorVal = prefs.getInt(KEY_LAST_SENSOR_VALUE, -1)
+                    val today = getStartOfDay()
+                    val lastKnownDay = prefs.getLong(KEY_LAST_KNOWN_DAY, -1L)
 
-                    if (lastSensorVal == -1) {
-                        // First event in this session/system run, save it and start
-                        prefs.edit().putInt(KEY_LAST_SENSOR_VALUE, currentSensorValue).apply()
-                    } else {
-                        val delta = currentSensorValue - lastSensorVal
-                        if (delta > 0) {
-                            addSteps(delta)
-                            prefs.edit().putInt(KEY_LAST_SENSOR_VALUE, currentSensorValue).apply()
-                        } else if (delta < 0) {
-                            // Phone restarted, reset baseline
-                            prefs.edit().putInt(KEY_LAST_SENSOR_VALUE, currentSensorValue).apply()
+                    if (lastKnownDay != today) {
+                        // Midnight rollover! Reset daily count baseline
+                        synchronized(this@StepCounterService) {
+                            todaySteps = 0
                         }
+                        prefs.edit()
+                            .putLong(KEY_LAST_KNOWN_DAY, today)
+                            .putInt(KEY_DAY_START_SENSOR_VALUE, currentSensorValue)
+                            .putInt(KEY_LAST_SENSOR_VALUE, currentSensorValue)
+                            .apply()
+
+                        saveTodaySteps(0)
+                    } else {
+                        var dayStartVal = prefs.getInt(KEY_DAY_START_SENSOR_VALUE, -1)
+                        val lastSensorVal = prefs.getInt(KEY_LAST_SENSOR_VALUE, -1)
+
+                        if (dayStartVal == -1 || lastSensorVal == -1) {
+                            dayStartVal = currentSensorValue
+                            prefs.edit()
+                                .putInt(KEY_DAY_START_SENSOR_VALUE, currentSensorValue)
+                                .putInt(KEY_LAST_SENSOR_VALUE, currentSensorValue)
+                                .apply()
+                        } else if (currentSensorValue < lastSensorVal) {
+                            // Phone rebooted mid-day; adjust baseline so today's accumulated count is preserved
+                            val stepsBeforeReboot = synchronized(this@StepCounterService) { todaySteps }
+                            dayStartVal = currentSensorValue - stepsBeforeReboot
+                            prefs.edit()
+                                .putInt(KEY_DAY_START_SENSOR_VALUE, dayStartVal)
+                                .putInt(KEY_LAST_SENSOR_VALUE, currentSensorValue)
+                                .apply()
+                        }
+
+                        val computedSteps = (currentSensorValue - dayStartVal).coerceAtLeast(0)
+                        prefs.edit().putInt(KEY_LAST_SENSOR_VALUE, currentSensorValue).apply()
+
+                        synchronized(this@StepCounterService) {
+                            todaySteps = computedSteps
+                        }
+                        saveTodaySteps(computedSteps)
                     }
                 }
                 Sensor.TYPE_STEP_DETECTOR -> {
                     if (event.values[0] == 1.0f) {
+                        checkDayBoundaryFallback()
                         addSteps(1)
                     }
                 }
@@ -82,6 +114,7 @@ class StepCounterService : Service() {
                     val magnitude = Math.sqrt((x * x + y * y + z * z).toDouble())
                     val currentTime = System.currentTimeMillis()
                     if (magnitude > 12.5 && (currentTime - lastAccelerometerStepTime) > 350) {
+                        checkDayBoundaryFallback()
                         addSteps(1)
                         lastAccelerometerStepTime = currentTime
                     }
@@ -89,6 +122,19 @@ class StepCounterService : Service() {
             }
         }
         override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+    }
+
+    private fun checkDayBoundaryFallback() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val today = getStartOfDay()
+        val lastKnownDay = prefs.getLong(KEY_LAST_KNOWN_DAY, -1L)
+        if (lastKnownDay != today) {
+            synchronized(this) {
+                todaySteps = 0
+            }
+            prefs.edit().putLong(KEY_LAST_KNOWN_DAY, today).apply()
+            saveTodaySteps(0)
+        }
     }
 
     private var lastAccelerometerStepTime: Long = 0L
@@ -119,6 +165,7 @@ class StepCounterService : Service() {
     }
 
     private fun loadTodaySteps() {
+        checkDayBoundaryFallback()
         serviceScope.launch {
             stepsMutex.withLock {
                 val today = getStartOfDay()
@@ -131,12 +178,7 @@ class StepCounterService : Service() {
         }
     }
 
-    private fun addSteps(stepsToAdd: Int) {
-        // Increment in-memory count synchronously to avoid parallel race condition gaps
-        synchronized(this) {
-            todaySteps += stepsToAdd
-        }
-        
+    private fun saveTodaySteps(steps: Int) {
         serviceScope.launch {
             stepsMutex.withLock {
                 val today = getStartOfDay()
@@ -145,17 +187,23 @@ class StepCounterService : Service() {
                 val settings = dao.getAppLockSettings()
                 val target = settings?.dailyStepTarget ?: 6000
 
-                // Get the final steps from memory synchronously
-                val finalSteps = synchronized(this@StepCounterService) { todaySteps }
-
                 if (existing != null) {
-                    dao.insertStepLog(existing.copy(steps = finalSteps, targetSteps = target))
+                    dao.insertStepLog(existing.copy(steps = steps, targetSteps = target))
                 } else {
-                    dao.insertStepLog(StepLog(date = today, steps = finalSteps, targetSteps = target))
+                    dao.insertStepLog(StepLog(date = today, steps = steps, targetSteps = target))
                 }
                 updateNotification()
             }
         }
+    }
+
+    private fun addSteps(stepsToAdd: Int) {
+        checkDayBoundaryFallback()
+        val finalSteps = synchronized(this) {
+            todaySteps += stepsToAdd
+            todaySteps
+        }
+        saveTodaySteps(finalSteps)
     }
 
     private fun initializeSensors() {
@@ -187,10 +235,10 @@ class StepCounterService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "عداد الخطوات جوري",
+                getString(R.string.step_counter_channel_name),
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "مراقبة وتسجيل عدد الخطوات اليومية تلقائياً"
+                description = getString(R.string.step_counter_channel_desc)
             }
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(channel)

@@ -18,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,7 +44,27 @@ import com.example.viewmodel.WomanCompanionViewModelFactory
 import android.content.Intent
 import androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions
 
+import com.example.R
+import com.example.reminder.ReminderScheduler
+import com.example.worker.MedicationMonitorWorker
+
+import android.util.Log
+import java.io.File
+import java.io.PrintWriter
+import java.io.StringWriter
+
 class MainActivity : ComponentActivity() {
+
+    private val isExactAlarmDeniedState = mutableStateOf(false)
+
+    override fun onResume() {
+        super.onResume()
+        val isDenied = !ReminderScheduler.canScheduleExact(this)
+        isExactAlarmDeniedState.value = isDenied
+        if (!isDenied) {
+            ReminderScheduler.rescheduleAllReminders(applicationContext)
+        }
+    }
 
     private val requestPermissionLauncher = registerForActivityResult(
         RequestMultiplePermissions()
@@ -83,13 +104,35 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun setupLocalCrashHandler() {
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            try {
+                val crashFile = File(filesDir, "last_crash.log")
+                val timestamp = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())
+                val writer = StringWriter()
+                throwable.printStackTrace(PrintWriter(writer))
+                val logContent = "[$timestamp] Uncaught exception in thread ${thread.name}:\n$writer\n\n"
+                crashFile.appendText(logContent)
+                Log.e("WomanCompanionCrash", "Recorded local uncaught crash: ${throwable.localizedMessage}")
+            } catch (e: Exception) {
+                Log.e("WomanCompanionCrash", "Failed to write local crash log: ${e.localizedMessage}")
+            } finally {
+                defaultHandler?.uncaughtException(thread, throwable)
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setupLocalCrashHandler()
         enableEdgeToEdge()
 
         // Initialize local database, repository and ViewModel factory
         val database = AppDatabase.getDatabase(applicationContext)
         com.example.data.GeminiService.init(applicationContext)
+        ReminderScheduler.rescheduleAllReminders(applicationContext)
+        MedicationMonitorWorker.enqueuePeriodicWork(applicationContext)
         val repository = WomanCompanionRepository(database.womanCompanionDao())
         val factory = WomanCompanionViewModelFactory(application, repository)
         val viewModel = ViewModelProvider(this, factory)[WomanCompanionViewModel::class.java]
@@ -127,6 +170,9 @@ class MainActivity : ComponentActivity() {
                 val pregState by viewModel.pregnancyState.collectAsStateWithLifecycle()
                 val companionName = settings?.companionName ?: "جوري"
                 
+                val isExactAlarmDenied by isExactAlarmDeniedState
+                var isExactAlarmPromptDismissed by remember { mutableStateOf(false) }
+
                 val tabsList = listOf("dashboard", "period", "nutrition", "symptoms", "tools")
                 val pagerState = rememberPagerState(
                     initialPage = 0,
@@ -670,13 +716,74 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             ) { innerPadding ->
-                                Box(
+                                Column(
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .background(SoftTheme.BackgroundBrush)
                                         .padding(innerPadding)
                                 ) {
-                                    if (isViewingSettings) {
+                                    if (isExactAlarmDenied && !isExactAlarmPromptDismissed) {
+                                        Card(
+                                            colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color(0xFF822727)),
+                                            shape = RoundedCornerShape(12.dp),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                                                .testTag("exact_alarm_permission_card")
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(12.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = stringResource(R.string.exact_alarm_permission_title),
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = androidx.compose.ui.graphics.Color.White,
+                                                        fontSize = 13.sp
+                                                    )
+                                                    Spacer(modifier = Modifier.height(2.dp))
+                                                    Text(
+                                                        text = stringResource(R.string.exact_alarm_permission_desc),
+                                                        color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.9f),
+                                                        fontSize = 11.sp,
+                                                        lineHeight = 15.sp
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Button(
+                                                    onClick = {
+                                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                                            try {
+                                                                val intent = Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                                                                    data = android.net.Uri.parse("package:$packageName")
+                                                                }
+                                                                startActivity(intent)
+                                                            } catch (e: Exception) {
+                                                                val intent = Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                                                                startActivity(intent)
+                                                            }
+                                                        }
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = androidx.compose.ui.graphics.Color.White),
+                                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                                    shape = RoundedCornerShape(8.dp)
+                                                ) {
+                                                    Text(stringResource(R.string.exact_alarm_permission_button), color = androidx.compose.ui.graphics.Color(0xFF822727), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                                IconButton(
+                                                    onClick = { isExactAlarmPromptDismissed = true },
+                                                    modifier = Modifier.size(24.dp)
+                                                ) {
+                                                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close_action), tint = androidx.compose.ui.graphics.Color.White)
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Box(modifier = Modifier.weight(1f)) {
+                                        if (isViewingSettings) {
                                         SettingsScreen(
                                             viewModel = viewModel,
                                             onNavigateBack = { isViewingSettings = false }
@@ -744,4 +851,5 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
 }

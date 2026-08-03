@@ -1,21 +1,21 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Room Database keep rules
+-keep class * extends androidx.room.RoomDatabase { *; }
+-keep class com.example.data.** { *; }
+-keepclassmembers class * extends androidx.room.RoomDatabase {
+    public <init>();
+}
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# SQLCipher keep rules
+-keep class net.sqlcipher.** { *; }
+-keep class net.sqlcipher.database.** { *; }
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Security / EncryptedSharedPreferences
+-keep class androidx.security.crypto.** { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Preserve line numbers and attributes for local stack traces & reflection
+-keepattributes SourceFile,LineNumberTable,Signature,InnerClasses,EnclosingMethod
+
+# Keep Compose metadata
+-keepclassmembers class * {
+    @androidx.compose.runtime.Composable *;
+}

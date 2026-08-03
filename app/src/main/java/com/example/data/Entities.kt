@@ -5,7 +5,7 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "pregnancy")
 data class PregnancyEntity(
-    @PrimaryKey val id: Int = 1,
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val lastPeriodDate: Long? = null,
     val dueDate: Long? = null,
     val babyName: String? = null,
@@ -28,7 +28,8 @@ data class PregnancyEntity(
     // +++ أضيف بناءً على طلبك لتسجيل جنس الجنين والاسم المقترح وطريقة الولادة +++
     val babyGender: String? = null,
     val birthMethod: String? = null,
-    val isDelivered: Boolean = false
+    val isDelivered: Boolean = false,
+    val isActive: Boolean = true
 )
 
 @Entity(tableName = "period_logs")
@@ -88,6 +89,26 @@ data class MedicationLog(
     val totalQuantity: Int = 0,          // الكمية الكلية المشتراة
     val remainingQuantity: Int = 0,      // الكمية المتبقية بالوحدة
     val safetyWarning: String? = null     // تحذير طبي مخصص (آمن أثناء الحمل، استشارة طبيب، إلخ)
+)
+
+@Entity(
+    tableName = "medication_adherence_logs",
+    foreignKeys = [
+        androidx.room.ForeignKey(
+            entity = MedicationLog::class,
+            parentColumns = ["id"],
+            childColumns = ["medicationId"],
+            onDelete = androidx.room.ForeignKey.CASCADE
+        )
+    ],
+    indices = [androidx.room.Index("medicationId")]
+)
+data class MedicationAdherenceLog(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val medicationId: Int,
+    val scheduledTime: Long,
+    val actualTime: Long? = null,
+    val status: String // TAKEN | MISSED | SNOOZED
 )
 
 // --- الكيان الجديد: السجل الذكي لتحليل النوم (Smart Sleep Analyzer) ---
@@ -279,9 +300,21 @@ data class MaonatyHouseholdTask(
 )
 
 // --- الكيان الجديد: تتبع نمو الجنين (Fetal Growth Tracker) ---
-@Entity(tableName = "fetal_growth_logs")
+@Entity(
+    tableName = "fetal_growth_logs",
+    foreignKeys = [
+        androidx.room.ForeignKey(
+            entity = PregnancyEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["pregnancyId"],
+            onDelete = androidx.room.ForeignKey.CASCADE
+        )
+    ],
+    indices = [androidx.room.Index("pregnancyId")]
+)
 data class FetalGrowthLog(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val pregnancyId: Int = 1,
     val date: Long = System.currentTimeMillis(),
     val pregnancyWeek: Int,              // أسبوع الحمل (مثلاً من 4 إلى 42)
     val weightGrams: Double,             // الوزن المدخل بالجرام (مثلاً 350.0 جرام)

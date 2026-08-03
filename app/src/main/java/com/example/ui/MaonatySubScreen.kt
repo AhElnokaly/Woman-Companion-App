@@ -39,6 +39,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.MaonatyHouseholdTask
 import com.example.data.MaonatyInventoryItem
 import com.example.data.MaonatyShoppingItem
+import com.example.data.NutritionLog
+import com.example.data.PregnancyNutritionReference
+import com.example.viewmodel.PregnancyProgression
 import com.example.viewmodel.WomanCompanionViewModel
 import java.text.SimpleDateFormat
 import java.util.*
@@ -76,6 +79,8 @@ fun MaonatySubScreen(viewModel: WomanCompanionViewModel) {
     val inventory by viewModel.allInventoryItemsState.collectAsStateWithLifecycle()
     val shoppingList by viewModel.allShoppingItemsState.collectAsStateWithLifecycle()
     val tasks by viewModel.allHouseholdTasksState.collectAsStateWithLifecycle()
+    val todayNutritionLogs by viewModel.todayNutritionLogsState.collectAsStateWithLifecycle()
+    val pregnancyProgression = viewModel.getPregnancyProgression()
 
     // Sub-tab navigation
     var activeTab by remember { mutableStateOf(0) } // 0: Inventory, 1: Shopping, 2: Recipes, 3: Tasks, 4: Backup
@@ -138,6 +143,14 @@ fun MaonatySubScreen(viewModel: WomanCompanionViewModel) {
                     )
                 }
             }
+        }
+
+        // Task 3: Trimester-Specific Pregnancy Nutrition Guidance Card (Only when pregnant)
+        if (pregnancyProgression != null) {
+            PregnancyNutritionGuidanceCard(
+                pregnancyProgression = pregnancyProgression,
+                todayLogs = todayNutritionLogs
+            )
         }
 
         // Custom Scrollable Row for Sub-Tabs
@@ -1839,6 +1852,170 @@ fun AddTaskDialog(onDismiss: () -> Unit, onConfirm: (String, String, String, Lon
                     }
                 }
             }
+        }
+    }
+}
+
+// ============================================================================
+// TASK 3 — PREGNANCY-AWARE NUTRITION GUIDANCE CARD
+// ============================================================================
+@Composable
+fun PregnancyNutritionGuidanceCard(
+    pregnancyProgression: PregnancyProgression,
+    todayLogs: List<NutritionLog>
+) {
+    val target = remember(pregnancyProgression.trimester) {
+        PregnancyNutritionReference.getTargetForTrimester(pregnancyProgression.trimester)
+    }
+
+    val totalCalories = remember(todayLogs) { todayLogs.sumOf { it.calories } }
+    val totalSodium = remember(todayLogs) { todayLogs.sumOf { it.sodiumMg } }
+    val totalIron = remember(todayLogs) { todayLogs.sumOf { it.ironMg } }
+    val totalFolate = remember(todayLogs) { todayLogs.sumOf { it.folateMcg } }
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, Color(0xFF38B2AC).copy(alpha = 0.4f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("pregnancy_nutrition_guidance_card")
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(Color(0xFF38B2AC).copy(alpha = 0.2f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("🥗", fontSize = 18.sp)
+                    }
+                    Column {
+                        Text(
+                            text = "التوجيه التغذوي لمرحلة الحمل 🤰",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = SoftTheme.TextWhite
+                        )
+                        Text(
+                            text = target.description,
+                            fontSize = 10.sp,
+                            color = Color(0xFFA0AEC0),
+                            lineHeight = 14.sp
+                        )
+                    }
+                }
+            }
+
+            // Progress indicators for key nutrients
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Calorie Target
+                NutrientProgressBar(
+                    label = "السعرات اليومية",
+                    currentVal = totalCalories.toDouble(),
+                    targetVal = target.totalCaloriesTargetKcal.toDouble(),
+                    unit = "سعرة",
+                    extraInfo = if (target.extraCaloriesKcal > 0) "+${target.extraCaloriesKcal} سعرة إضافية للثلث ${target.trimester}" else "السعرات الأساسية للثلث 1",
+                    accentColor = Color(0xFFED8936)
+                )
+
+                // Sodium Ceiling Flag
+                val isSodiumExceeded = totalSodium > target.maxSodiumMg
+                NutrientProgressBar(
+                    label = "الصوديوم (حد أقصى وقائي)",
+                    currentVal = totalSodium,
+                    targetVal = target.maxSodiumMg,
+                    unit = "ملجم",
+                    isExceeded = isSodiumExceeded,
+                    extraInfo = if (isSodiumExceeded) "⚠️ تجاوزت الحد الأقصى للصوديوم اليوم (${totalSodium.toInt()} ملجم)!" else "الصوديوم اليوم: ${totalSodium.toInt()} من ${target.maxSodiumMg.toInt()} ملجم المسموح بها",
+                    accentColor = if (isSodiumExceeded) SoftTheme.RedDanger else Color(0xFF38B2AC)
+                )
+
+                // Iron Target
+                NutrientProgressBar(
+                    label = "الحديد اليومي",
+                    currentVal = totalIron,
+                    targetVal = target.targetIronMg,
+                    unit = "ملجم",
+                    extraInfo = "الهدف: ${target.targetIronMg} ملجم لتجنب أنيميا الحمل",
+                    accentColor = Color(0xFF9F7AEA)
+                )
+
+                // Folic Acid Target
+                NutrientProgressBar(
+                    label = "حمض الفوليك",
+                    currentVal = totalFolate,
+                    targetVal = target.targetFolicAcidMcg,
+                    unit = "مكجم",
+                    extraInfo = "الهدف: ${target.targetFolicAcidMcg.toInt()} مكجم لتطور الجهاز العصبي",
+                    accentColor = SoftTheme.SoftPink
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun NutrientProgressBar(
+    label: String,
+    currentVal: Double,
+    targetVal: Double,
+    unit: String,
+    isExceeded: Boolean = false,
+    extraInfo: String = "",
+    accentColor: Color
+) {
+    val progress = if (targetVal > 0) (currentVal / targetVal).coerceIn(0.0, 1.0).toFloat() else 0f
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = SoftTheme.TextWhite
+            )
+            Text(
+                text = "${currentVal.toInt()} / ${targetVal.toInt()} $unit",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (isExceeded) SoftTheme.RedDanger else accentColor
+            )
+        }
+        LinearProgressIndicator(
+            progress = { progress },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(6.dp)
+                .clip(RoundedCornerShape(3.dp)),
+            color = if (isExceeded) SoftTheme.RedDanger else accentColor,
+            trackColor = SoftTheme.DeepSlate
+        )
+        if (extraInfo.isNotEmpty()) {
+            Text(
+                text = extraInfo,
+                fontSize = 9.sp,
+                color = if (isExceeded) SoftTheme.RedDanger else Color(0xFFA0AEC0)
+            )
         }
     }
 }

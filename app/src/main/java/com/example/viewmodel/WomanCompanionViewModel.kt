@@ -16,6 +16,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.*
+import com.example.reminder.ReminderScheduler
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -26,8 +28,22 @@ class WomanCompanionViewModel(
     private val repository: WomanCompanionRepository
 ) : AndroidViewModel(application) {
 
-    // +++ أضيف بناءً على طلبك لدعم المفضلات وذكاء التفضيل المحلي للأطعمة +++
-    private val sharedPrefs = application.getSharedPreferences("jouri_behavior_prefs", Context.MODE_PRIVATE)
+    private val coroutineExceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        Log.e("WomanCompanionVM", "Unhandled exception in coroutine", throwable)
+    }
+
+    // Consolidated single SharedPreferences bucket for app-level flags
+    private val sharedPrefs = application.getSharedPreferences("woman_companion_prefs", Context.MODE_PRIVATE)
+
+    private val _isUpdatesBannerDismissed = MutableStateFlow(
+        sharedPrefs.getBoolean("new_updates_banner_dismissed_v2", false)
+    )
+    val isUpdatesBannerDismissed: StateFlow<Boolean> = _isUpdatesBannerDismissed.asStateFlow()
+
+    fun dismissUpdatesBanner() {
+        _isUpdatesBannerDismissed.value = true
+        sharedPrefs.edit().putBoolean("new_updates_banner_dismissed_v2", true).apply()
+    }
 
     private val _favoriteFoods = MutableStateFlow<Set<String>>(
         sharedPrefs.getStringSet("favorites", emptySet()) ?: emptySet()
@@ -115,7 +131,7 @@ class WomanCompanionViewModel(
 
     fun testAndSaveApiKey(key: String, customBaseUrl: String? = null, customModel: String? = null) {
         _apiKeyTestStatus.value = "testing"
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             val trimmedKey = key.trim()
             val trimmedUrl = customBaseUrl?.trim() ?: "https://generativelanguage.googleapis.com/"
             val trimmedModel = customModel?.trim() ?: "gemini-3.5-flash"
@@ -137,7 +153,7 @@ class WomanCompanionViewModel(
     }
 
     fun saveApiKey(key: String, baseUrl: String, model: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             apiKeyRepository.saveKey(key.trim())
             apiKeyRepository.saveBaseUrl(baseUrl.trim())
             apiKeyRepository.saveModelName(model.trim())
@@ -145,7 +161,7 @@ class WomanCompanionViewModel(
     }
 
     fun clearApiKey() {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             apiKeyRepository.clearKey()
         }
     }
@@ -183,6 +199,9 @@ class WomanCompanionViewModel(
     // --- State Observables ---
     val pregnancyState: StateFlow<PregnancyEntity?> = repository.pregnancyFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val allPregnanciesState: StateFlow<List<PregnancyEntity>> = repository.allPregnanciesFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val periodLogsState: StateFlow<List<PeriodLog>> = repository.allPeriodLogsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -337,7 +356,7 @@ class WomanCompanionViewModel(
     val isGitHubUpdateAvailable: StateFlow<Boolean> = _isGitHubUpdateAvailable.asStateFlow()
 
     fun checkForGitHubUpdates() {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             try {
                 val settings = repository.getAppLockSettings() ?: return@launch
                 val url = settings.gitHubRepoUrl
@@ -363,7 +382,7 @@ class WomanCompanionViewModel(
 
     init {
         // التحقق من استعادة ملف التعريف عند تشغيل التطبيق في حال اكتمال شاشة التهيئة مسبقًا
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             try {
                 val existing = repository.getPregnancy()
                 if (existing == null && sharedPrefs.getBoolean("onboarding_completed_v1", false)) {
@@ -409,7 +428,7 @@ class WomanCompanionViewModel(
         }
 
         // Check if lock is enabled on launch
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             val settings = repository.getAppLockSettings()
             if (settings != null && settings.isLockEnabled && !settings.pinHash.isNullOrEmpty()) {
                 _isLocked.value = true
@@ -448,13 +467,13 @@ class WomanCompanionViewModel(
     }
 
     fun refreshWeather(lat: Double = 30.0444, lon: Double = 31.2357) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             _weatherState.value = WeatherService.fetchWeather(lat, lon)
         }
     }
 
     fun addSteps(stepsToAdd: Int) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             val today = getStartOfDay()
             val existing = repository.getStepLogForDate(today)
             val settings = repository.getAppLockSettings()
@@ -512,7 +531,7 @@ class WomanCompanionViewModel(
         val count = _currentKickCount.value
         val duration = (end - start) / 1000
 
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.insertFetalKickSession(
                 FetalKickSession(
                     startTime = start,
@@ -544,7 +563,7 @@ class WomanCompanionViewModel(
         val end = getCurrentTime()
         val duration = (end - start) / 1000
 
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             val all = contractionLogsState.value
             val interval = if (all.isNotEmpty()) {
                 (start - all.first().startTime) / 1000
@@ -568,7 +587,7 @@ class WomanCompanionViewModel(
 
     // Pregnancy setup
     fun setPregnancy(lastPeriodDate: Long?, preWeight: Double?, height: Double?) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             val existing = repository.getPregnancy()
             var finalLmp = lastPeriodDate ?: existing?.lastPeriodDate
             if (finalLmp == null) {
@@ -613,7 +632,7 @@ class WomanCompanionViewModel(
 
     // +++ أضيف بناءً على طلبك لتحديث بيانات جنس الجنين واسمه المقترح +++
     fun updateBabyInfo(gender: String?, name: String?) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             val existing = repository.getPregnancy()
             if (existing != null) {
                 repository.savePregnancy(
@@ -628,7 +647,7 @@ class WomanCompanionViewModel(
 
     // +++ أضيف بناءً على طلبك لتحديث حالة وتفاصيل الولادة ونصائحها +++
     fun updateDeliveryInfo(isDelivered: Boolean, birthMethod: String?) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             val existing = repository.getPregnancy()
             if (existing != null) {
                 repository.savePregnancy(
@@ -651,7 +670,7 @@ class WomanCompanionViewModel(
         preWeight: Double?,
         height: Double?
     ) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             val existing = repository.getPregnancy()
             val isPreg = if (userPhase != null) {
                 userPhase == "pregnancy"
@@ -702,7 +721,7 @@ class WomanCompanionViewModel(
     }
 
     fun updateUserBirthDate(birthDateMs: Long) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             val existing = repository.getPregnancy()
             val computedAge = calculateAge(birthDateMs)
             val updated = existing?.copy(
@@ -729,13 +748,13 @@ class WomanCompanionViewModel(
     }
 
     fun clearPregnancy() {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.deletePregnancy()
         }
     }
 
     fun switchToPeriodTracking() {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             val existing = repository.getPregnancy()
             if (existing != null) {
                 repository.savePregnancy(
@@ -762,7 +781,7 @@ class WomanCompanionViewModel(
         lastPeriodEndDate: Long?,
         isPregnant: Boolean
     ) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             // حفظ حالة اكتمال شاشة التهيئة في SharedPreferences لضمان تخطيها دائمًا عند إعادة فتح التطبيق
             sharedPrefs.edit().apply {
                 putBoolean("onboarding_completed_v1", true)
@@ -827,7 +846,7 @@ class WomanCompanionViewModel(
 
     // Period log CRUD
     fun addPeriodLog(startDate: Long, endDate: Long?, intensity: String, symptoms: List<String>, painLevel: Int, notes: String?) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.insertPeriodLog(
                 PeriodLog(
                     startDate = startDate,
@@ -842,14 +861,14 @@ class WomanCompanionViewModel(
     }
 
     fun deletePeriod(log: PeriodLog) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.deletePeriodLog(log)
         }
     }
 
     // Water tracker
     fun addWater(amountMl: Int) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             val today = getStartOfDay()
             val existing = repository.getWaterLogForDate(today)
             if (existing != null) {
@@ -861,7 +880,7 @@ class WomanCompanionViewModel(
     }
 
     fun resetTodayWater() {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             val today = getStartOfDay()
             val existing = repository.getWaterLogForDate(today)
             if (existing != null) {
@@ -891,7 +910,7 @@ class WomanCompanionViewModel(
         vitaminC: Double = 0.0,
         vitaminA: Double = 0.0
     ) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             val matchedFoods = EgyptianFoodRepository.extractFoodsFromInput(description)
             
             val finalCalories = if (calories > 0) calories else (matchedFoods.sumOf { it.calories })
@@ -951,7 +970,7 @@ class WomanCompanionViewModel(
     }
 
     fun deleteNutritionMeal(log: NutritionLog) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.deleteNutritionLog(log)
         }
     }
@@ -969,27 +988,28 @@ class WomanCompanionViewModel(
         remainingQuantity: Int = 0,
         safetyWarning: String? = null
     ) {
-        viewModelScope.launch {
-            repository.insertMedication(
-                MedicationLog(
-                    name = name,
-                    dosage = dosage,
-                    timesPerDay = timesPerDay,
-                    prescribedBy = prescby,
-                    notes = notes,
-                    startDate = start,
-                    isActive = true,
-                    expiryDate = expiryDate,
-                    totalQuantity = totalQuantity,
-                    remainingQuantity = remainingQuantity,
-                    safetyWarning = safetyWarning
-                )
+        viewModelScope.launch(coroutineExceptionHandler) {
+            val med = MedicationLog(
+                name = name,
+                dosage = dosage,
+                timesPerDay = timesPerDay,
+                prescribedBy = prescby,
+                notes = notes,
+                startDate = start,
+                isActive = true,
+                expiryDate = expiryDate,
+                totalQuantity = totalQuantity,
+                remainingQuantity = remainingQuantity,
+                safetyWarning = safetyWarning
             )
+            val insertedId = repository.insertMedication(med).toInt()
+            val createdMed = med.copy(id = insertedId)
+            ReminderScheduler.scheduleMedicationReminders(getApplication(), createdMed)
         }
     }
 
     fun decrementMedicationStock(medication: MedicationLog, amount: Int = 1) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             val currentRemaining = medication.remainingQuantity
             val nextRemaining = (currentRemaining - amount).coerceAtLeast(0)
             repository.insertMedication(medication.copy(remainingQuantity = nextRemaining))
@@ -997,13 +1017,21 @@ class WomanCompanionViewModel(
     }
 
     fun toggleMedicationActive(medication: MedicationLog) {
-        viewModelScope.launch {
-            repository.insertMedication(medication.copy(isActive = !medication.isActive))
+        viewModelScope.launch(coroutineExceptionHandler) {
+            val newIsActive = !medication.isActive
+            val updated = medication.copy(isActive = newIsActive)
+            repository.insertMedication(updated)
+            if (!newIsActive) {
+                ReminderScheduler.cancelMedicationReminders(getApplication(), medication.id, medication.timesPerDay)
+            } else {
+                ReminderScheduler.scheduleMedicationReminders(getApplication(), updated)
+            }
         }
     }
 
     fun deleteMedication(medication: MedicationLog) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
+            ReminderScheduler.cancelMedicationReminders(getApplication(), medication.id, medication.timesPerDay)
             repository.deleteMedication(medication)
         }
     }
@@ -1019,7 +1047,7 @@ class WomanCompanionViewModel(
         awakenings: Int = 0,
         notes: String? = null
     ) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             val date = getStartOfDay(startTime)
             repository.insertSleepLog(
                 SleepLog(
@@ -1038,14 +1066,14 @@ class WomanCompanionViewModel(
     }
 
     fun deleteSleepLog(log: SleepLog) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.deleteSleepLog(log)
         }
     }
 
     // --- عمليات ربط الشريك والرفيق (Companion Sync Operations) ---
     fun addPartnerMessage(senderName: String, messageText: String, category: String = "Support") {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.insertPartnerMessage(
                 PartnerMessage(
                     senderName = senderName,
@@ -1057,7 +1085,7 @@ class WomanCompanionViewModel(
     }
 
     fun markPartnerMessageAsRead(id: Int) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.markPartnerMessageAsRead(id)
         }
     }
@@ -1069,7 +1097,7 @@ class WomanCompanionViewModel(
         intensity: Int = 5,
         notes: String? = null
     ) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.insertCravingLog(
                 CravingLog(
                     cravingItem = cravingItem,
@@ -1082,16 +1110,32 @@ class WomanCompanionViewModel(
     }
 
     fun deleteCravingLog(log: CravingLog) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.deleteCravingLog(log)
         }
     }
 
     // --- تتبع نمو الجنين (Fetal Growth Tracker operations) ---
+    fun calculateWeightDeviation(loggedWeek: Int, actualWeightGrams: Double): Double {
+        return com.example.ui.FetalStandardData.calculateWeightDeviation(loggedWeek, actualWeightGrams)
+    }
+
+    fun getWeightDeviationForCurrentPregnancy(): Double? {
+        val activePregnancy = pregnancyState.value ?: return null
+        if (!activePregnancy.isPregnant) return null
+        val logs = allFetalGrowthLogsState.value
+        val latestLog = logs
+            .filter { it.pregnancyId == activePregnancy.id }
+            .maxByOrNull { it.date } ?: return null
+        return com.example.ui.FetalStandardData.calculateWeightDeviation(latestLog.pregnancyWeek, latestLog.weightGrams)
+    }
+
     fun addFetalGrowthLog(week: Int, weightGrams: Double, lengthCm: Double, notes: String?) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
+            val activePregnancyId = pregnancyState.value?.id ?: 1
             repository.insertFetalGrowthLog(
                 FetalGrowthLog(
+                    pregnancyId = activePregnancyId,
                     pregnancyWeek = week,
                     weightGrams = weightGrams,
                     lengthCm = lengthCm,
@@ -1101,15 +1145,53 @@ class WomanCompanionViewModel(
         }
     }
 
+    fun startNewPregnancy(
+        lastPeriodDate: Long,
+        babyName: String? = null,
+        prePregnancyWeight: Double? = null,
+        heightCm: Double? = null,
+        babyGender: String? = null
+    ) {
+        viewModelScope.launch(coroutineExceptionHandler) {
+            val existing = repository.getPregnancy()
+            repository.deactivateAllPregnancies()
+            val dueDate = lastPeriodDate + 280L * 24 * 60 * 60 * 1000
+            val computedAge = existing?.birthDate?.let { calculateAge(it) } ?: existing?.age
+
+            val newPregnancy = PregnancyEntity(
+                id = 0,
+                motherName = existing?.motherName ?: "الأم",
+                nickname = existing?.nickname,
+                birthDate = existing?.birthDate,
+                age = computedAge,
+                hasHighBp = existing?.hasHighBp ?: false,
+                hasLowBp = existing?.hasLowBp ?: false,
+                hasDiabetes = existing?.hasDiabetes ?: false,
+                chronicOthers = existing?.chronicOthers,
+                lastPeriodDate = lastPeriodDate,
+                dueDate = dueDate,
+                babyName = babyName,
+                prePregnancyWeight = prePregnancyWeight ?: existing?.prePregnancyWeight,
+                heightCm = heightCm ?: existing?.heightCm,
+                babyGender = babyGender,
+                isPregnant = true,
+                isActive = true,
+                userPhase = "pregnancy",
+                isOnboardingCompleted = true
+            )
+            repository.savePregnancy(newPregnancy)
+        }
+    }
+
     fun deleteFetalGrowthLog(log: FetalGrowthLog) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.deleteFetalGrowthLog(log)
         }
     }
 
     // Symptom logger
     fun addSymptom(symptom: String, severity: Int, notes: String?) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.insertSymptomLog(
                 SymptomLog(
                     date = getCurrentTime(),
@@ -1122,14 +1204,14 @@ class WomanCompanionViewModel(
     }
 
     fun deleteSymptom(log: SymptomLog) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.deleteSymptomLog(log)
         }
     }
 
     // Blood pressure logger
     fun addBloodPressureLog(systolic: Int, diastolic: Int, pulse: Int?, notes: String?) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.insertBloodPressureLog(
                 BloodPressureLog(
                     date = getCurrentTime(),
@@ -1143,40 +1225,49 @@ class WomanCompanionViewModel(
     }
 
     fun deleteBloodPressureLog(log: BloodPressureLog) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.deleteBloodPressureLog(log)
         }
     }
 
     // Appointments
     fun addAppointment(title: String, dateTime: Long, doctor: String?, notes: String?) {
-        viewModelScope.launch {
-            repository.insertAppointment(
-                Appointment(
-                    dateTime = dateTime,
-                    title = title,
-                    doctorName = doctor,
-                    notes = notes
-                )
+        viewModelScope.launch(coroutineExceptionHandler) {
+            val appt = Appointment(
+                dateTime = dateTime,
+                title = title,
+                doctorName = doctor,
+                notes = notes
             )
+            val insertedId = repository.insertAppointment(appt).toInt()
+            val createdAppt = appt.copy(id = insertedId)
+            ReminderScheduler.scheduleAppointmentReminder(getApplication(), createdAppt)
         }
     }
 
     fun toggleAppointmentCompleted(appointment: Appointment) {
-        viewModelScope.launch {
-            repository.insertAppointment(appointment.copy(completed = !appointment.completed))
+        viewModelScope.launch(coroutineExceptionHandler) {
+            val newCompleted = !appointment.completed
+            val updated = appointment.copy(completed = newCompleted)
+            repository.insertAppointment(updated)
+            if (newCompleted) {
+                ReminderScheduler.cancelAppointmentReminder(getApplication(), appointment.id)
+            } else {
+                ReminderScheduler.scheduleAppointmentReminder(getApplication(), updated)
+            }
         }
     }
 
     fun deleteAppointment(appointment: Appointment) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
+            ReminderScheduler.cancelAppointmentReminder(getApplication(), appointment.id)
             repository.deleteAppointment(appointment)
         }
     }
 
     // Journal
     fun addJournalEntry(content: String, mood: String?) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.insertJournalEntry(
                 JournalEntry(
                     date = getCurrentTime(),
@@ -1188,14 +1279,14 @@ class WomanCompanionViewModel(
     }
 
     fun deleteJournal(entry: JournalEntry) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.deleteJournalEntry(entry)
         }
     }
 
     // Qada Fasts (Ramadan missed days)
     fun addQadaFast(yearHijri: Int, missed: Int, completed: Int) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.insertQadaFast(
                 QadaFast(
                     yearHijri = yearHijri,
@@ -1207,7 +1298,7 @@ class WomanCompanionViewModel(
     }
 
     fun updateQadaFastProgress(fast: QadaFast, increment: Boolean) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             val newVal = if (increment) {
                 (fast.completedDays + 1).coerceAtMost(fast.missedDays)
             } else {
@@ -1218,7 +1309,7 @@ class WomanCompanionViewModel(
     }
 
     fun deleteQadaFast(fast: QadaFast) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.deleteQadaFast(fast)
         }
     }
@@ -1234,7 +1325,7 @@ class WomanCompanionViewModel(
         gitHubRepoUrl: String? = null,
         userApiKey: String? = null
     ) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             val current = repository.getAppLockSettings()
             val finalIsDark = isDarkMode ?: current?.isDarkMode ?: true
             val finalGitHubUrl = gitHubRepoUrl ?: current?.gitHubRepoUrl ?: "https://raw.githubusercontent.com/your_username/your_repo/main/matrix.json"
@@ -1259,7 +1350,7 @@ class WomanCompanionViewModel(
 
     // +++ أضيف بناءً على طلبك لتغيير ألوان التطبيق (داكن/فاتح) برغبة المستخدم أو بطلب من جوري +++
     fun setThemeMode(isDark: Boolean) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             val current = repository.getAppLockSettings()
             if (current != null) {
                 repository.saveAppLockSettings(current.copy(isDarkMode = isDark))
@@ -1282,7 +1373,7 @@ class WomanCompanionViewModel(
     val gitHubSyncStatus: StateFlow<String?> = _gitHubSyncStatus.asStateFlow()
 
     fun syncJouriMatrix() {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             _gitHubSyncStatus.value = "جاري الاتصال بـ GitHub..."
             val settings = repository.getAppLockSettings()
             val url = settings?.gitHubRepoUrl
@@ -1308,7 +1399,7 @@ class WomanCompanionViewModel(
     }
 
     fun toggleDarkMode() {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             val current = repository.getAppLockSettings() ?: AppLockSettings()
             repository.saveAppLockSettings(current.copy(isDarkMode = !current.isDarkMode))
         }
@@ -1373,14 +1464,14 @@ class WomanCompanionViewModel(
     }
 
     fun factoryReset() {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.factoryReset()
             _isLocked.value = false
         }
     }
 
     fun clearContractions() {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.clearAllContractions()
         }
     }
@@ -1538,19 +1629,13 @@ class WomanCompanionViewModel(
     }
 
     private fun getFetalComparison(weeks: Int): FetalComparison {
-        return when {
-            weeks < 1 -> FetalComparison("تخصيب خلايا", "🧬", "الجسم يستعد للملحمة المذهلة! ركّزي على حمض الفوليك والراحة.")
-            weeks < 5 -> FetalComparison("بذرة الخشخاش", "🪹", "بذرة صغيرة جدًا في طور الانغراس. الخلايا الأولى لقلب الطفل تبدأ بالتخلق.")
-            weeks < 9 -> FetalComparison("حبة عنب بري", "🫐", "يبدأ طفلك بالحركة البسيطة جداً، وتتشكل براعم الأيدي والأرجل الرائعة.")
-            weeks < 13 -> FetalComparison("حبة تين كاملة", "🫓", "تخلق رائع لأعضاء الجنين الأساسية. الذقن والأنف والرموش تبدأ في الظهور.")
-            weeks < 17 -> FetalComparison("حبة ليمون نضرة", "🍋", "الطفل يمكنه الآن ابتلاع السائل الأمنيوسي والتعبير بتعابير وجه دقيقة.")
-            weeks < 21 -> FetalComparison("حبة بطاطا حلوة", "🍠", "يكسو جسم الطفل زغب رقيق، وجهازه السمعي يعمل بشكل مدهش لسماع صوتكِ.")
-            weeks < 25 -> FetalComparison("حبة رمان مكتملة", "🍆", "حركات الركل تزداد قوة، وتظهر بصمات الأصابع الفريدة بوضوح.")
-            weeks < 29 -> FetalComparison("رأس خس رائع", "🥬", "يتعلم الجنين فتح وإغلاق عينيه اللطيفتين، ويبدأ بالتنفس التدريبي.")
-            weeks < 33 -> FetalComparison("ثمرة جوز هند متينة", "🥥", "نمو دماغي وعظمي هائل. يحتاج إلى الكالسيوم بكثرة لبناء هيكله.")
-            weeks < 37 -> FetalComparison("شمامة أو بطيخة صغيرة", "🍈", "الطفل يأخذ وضعية الولادة الطبيعية (الرأس لأسفل غالباً) ويكتسب وزناً دهنياً دافئاً.")
-            else -> FetalComparison("بطيخة كاملة مكتملة النضج", "🍉", "الطفل جاهز تماماً للخروج ومقابلتكِ بأمان! دعواتنا لكِ بولادة يسيرة 🌸.")
-        }
+        val clampedWeek = weeks.coerceIn(1, 42)
+        val standard = com.example.ui.FetalStandardData.getStandardForWeek(clampedWeek)
+        return FetalComparison(
+            name = standard.fruitComparison,
+            icon = standard.icon,
+            developmentTip = standard.description
+        )
     }
 
     // Dynamic water target: 2000ml default. If pregnant, add 500ml. Also adds extra weather-based hydration requirements.
@@ -1651,7 +1736,7 @@ class WomanCompanionViewModel(
     // ==========================================
 
     fun addInventoryItem(name: String, category: String, quantity: Double, minQuantity: Double, unit: String, priceEstimate: Double, id: Int = 0) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.insertInventoryItem(
                 MaonatyInventoryItem(
                     id = id,
@@ -1667,19 +1752,19 @@ class WomanCompanionViewModel(
     }
 
     fun deleteInventoryItem(item: MaonatyInventoryItem) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.deleteInventoryItem(item)
         }
     }
 
     fun clearInventory() {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.clearInventory()
         }
     }
 
     fun addShoppingItem(name: String, category: String, quantity: Double, unit: String, price: Double, autoGenerated: Boolean = false) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.insertShoppingItem(
                 MaonatyShoppingItem(
                     name = name,
@@ -1694,25 +1779,25 @@ class WomanCompanionViewModel(
     }
 
     fun deleteShoppingItem(item: MaonatyShoppingItem) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.deleteShoppingItem(item)
         }
     }
 
     fun toggleShoppingItemBought(item: MaonatyShoppingItem) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.updateShoppingItemStatus(item.id, !item.isBought)
         }
     }
 
     fun clearShoppingList() {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.clearShoppingList()
         }
     }
 
     fun addHouseholdTask(title: String, category: String, priority: String, dueDate: Long) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.insertHouseholdTask(
                 MaonatyHouseholdTask(
                     title = title,
@@ -1725,26 +1810,26 @@ class WomanCompanionViewModel(
     }
 
     fun deleteHouseholdTask(task: MaonatyHouseholdTask) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.deleteHouseholdTask(task)
         }
     }
 
     fun toggleTaskCompleted(task: MaonatyHouseholdTask) {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.updateTaskStatus(task.id, !task.isCompleted)
         }
     }
 
     fun clearHouseholdTasks() {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             repository.clearHouseholdTasks()
         }
     }
 
     // Auto-Shopping List Generation based on low stock inventory
     fun generateAutoShoppingList() {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             val inventory = allInventoryItemsState.value
             val currentShopping = allShoppingItemsState.value
             
@@ -1776,7 +1861,7 @@ class WomanCompanionViewModel(
 
     // Seed realistic sample data
     fun populateMaonatySampleData() {
-        viewModelScope.launch {
+        viewModelScope.launch(coroutineExceptionHandler) {
             // Check if inventory is empty
             if (allInventoryItemsState.value.isEmpty()) {
                 val samples = listOf(
@@ -1864,7 +1949,7 @@ class WomanCompanionViewModel(
         return try {
             val root = org.json.JSONObject(jsonString)
             
-            viewModelScope.launch {
+            viewModelScope.launch(coroutineExceptionHandler) {
                 // Parse Inventory
                 if (root.has("inventory")) {
                     repository.clearInventory()

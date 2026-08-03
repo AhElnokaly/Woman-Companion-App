@@ -7,17 +7,29 @@ import kotlinx.coroutines.flow.Flow
 interface WomanCompanionDao {
 
     // --- Pregnancy ---
-    @Query("SELECT * FROM pregnancy WHERE id = 1 LIMIT 1")
+    @Query("SELECT * FROM pregnancy WHERE isActive = 1 ORDER BY id DESC LIMIT 1")
     fun getPregnancyFlow(): Flow<PregnancyEntity?>
 
-    @Query("SELECT * FROM pregnancy WHERE id = 1 LIMIT 1")
+    @Query("SELECT * FROM pregnancy WHERE isActive = 1 ORDER BY id DESC LIMIT 1")
     suspend fun getPregnancy(): PregnancyEntity?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertOrUpdatePregnancy(pregnancy: PregnancyEntity)
+    @Query("SELECT * FROM pregnancy ORDER BY id DESC")
+    fun getAllPregnanciesFlow(): Flow<List<PregnancyEntity>>
 
-    @Query("DELETE FROM pregnancy WHERE id = 1")
+    @Query("SELECT * FROM pregnancy ORDER BY id DESC")
+    suspend fun getAllPregnancies(): List<PregnancyEntity>
+
+    @Query("UPDATE pregnancy SET isActive = 0")
+    suspend fun deactivateAllPregnancies()
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrUpdatePregnancy(pregnancy: PregnancyEntity): Long
+
+    @Query("DELETE FROM pregnancy WHERE isActive = 1")
     suspend fun deletePregnancy()
+
+    @Query("DELETE FROM pregnancy WHERE id = :id")
+    suspend fun deletePregnancyById(id: Int)
 
     // --- Period Logs ---
     @Query("SELECT * FROM period_logs ORDER BY startDate DESC")
@@ -65,11 +77,27 @@ interface WomanCompanionDao {
     @Query("SELECT * FROM medications WHERE isActive = 1 ORDER BY name ASC")
     fun getActiveMedicationsFlow(): Flow<List<MedicationLog>>
 
+    @Query("UPDATE medications SET remainingQuantity = CASE WHEN remainingQuantity > 0 THEN remainingQuantity - 1 ELSE 0 END WHERE id = :medId")
+    suspend fun decrementMedicationQuantity(medId: Int)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertMedication(medication: MedicationLog)
+    suspend fun insertMedication(medication: MedicationLog): Long
 
     @Delete
     suspend fun deleteMedication(medication: MedicationLog)
+
+    // --- Medication Adherence ---
+    @Query("SELECT * FROM medication_adherence_logs ORDER BY scheduledTime DESC")
+    fun getAllMedicationAdherenceLogsFlow(): Flow<List<MedicationAdherenceLog>>
+
+    @Query("SELECT * FROM medication_adherence_logs WHERE medicationId = :medId ORDER BY scheduledTime DESC")
+    fun getAdherenceLogsForMedicationFlow(medId: Int): Flow<List<MedicationAdherenceLog>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMedicationAdherenceLog(log: MedicationAdherenceLog)
+
+    @Delete
+    suspend fun deleteMedicationAdherenceLog(log: MedicationAdherenceLog)
 
     // --- Symptoms ---
     @Query("SELECT * FROM symptom_logs ORDER BY date DESC")
@@ -116,7 +144,7 @@ interface WomanCompanionDao {
     fun getAllAppointmentsFlow(): Flow<List<Appointment>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAppointment(appointment: Appointment)
+    suspend fun insertAppointment(appointment: Appointment): Long
 
     @Delete
     suspend fun deleteAppointment(appointment: Appointment)
@@ -296,6 +324,9 @@ interface WomanCompanionDao {
     // --- تتبع نمو الجنين (Fetal Growth Tracker) ---
     @Query("SELECT * FROM fetal_growth_logs ORDER BY pregnancyWeek ASC")
     fun getAllFetalGrowthLogsFlow(): Flow<List<FetalGrowthLog>>
+
+    @Query("SELECT * FROM fetal_growth_logs WHERE pregnancyId = :pregnancyId ORDER BY pregnancyWeek ASC")
+    fun getFetalGrowthLogsForPregnancyFlow(pregnancyId: Int): Flow<List<FetalGrowthLog>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFetalGrowthLog(log: FetalGrowthLog)
