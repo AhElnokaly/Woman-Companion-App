@@ -336,4 +336,20 @@ interface WomanCompanionDao {
 
     @Query("DELETE FROM fetal_growth_logs")
     suspend fun clearFetalGrowthLogs()
+
+    // --- وسيلة منع الحمل (Contraceptive Methods) ---
+    @Query("SELECT * FROM contraceptive_methods ORDER BY startDate DESC")
+    fun getAllContraceptiveMethodsFlow(): Flow<List<ContraceptiveMethod>>
+
+    @Query("SELECT * FROM contraceptive_methods WHERE endDate IS NULL ORDER BY startDate DESC LIMIT 1")
+    fun getActiveContraceptiveMethodFlow(): Flow<ContraceptiveMethod?>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertContraceptiveMethod(method: ContraceptiveMethod): Long
+
+    @Update
+    suspend fun updateContraceptiveMethod(method: ContraceptiveMethod)
+
+    @Delete
+    suspend fun deleteContraceptiveMethod(method: ContraceptiveMethod)
 }

@@ -15,8 +15,9 @@ class BootReceiver : BroadcastReceiver() {
             try {
                 ReminderScheduler.rescheduleAllReminders(context)
                 MedicationMonitorWorker.enqueuePeriodicWork(context)
+                com.example.worker.WeeklyDigestWorker.enqueuePeriodicWork(context)
             } catch (e: Exception) {
-                e.printStackTrace()
+                com.example.util.AppLogger.e("BootReceiver", "Failed to reschedule reminders on boot", e)
             }
 
             // Restart Step Counter Service
@@ -28,7 +29,7 @@ class BootReceiver : BroadcastReceiver() {
                     context.startService(serviceIntent)
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                com.example.util.AppLogger.e("BootReceiver", "Failed to restart StepCounterService on boot", e)
             }
         }
     }

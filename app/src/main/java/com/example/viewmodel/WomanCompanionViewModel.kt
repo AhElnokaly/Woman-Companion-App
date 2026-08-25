@@ -17,6 +17,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.*
 import com.example.reminder.ReminderScheduler
+import com.example.widget.WomanCompanionAppWidget
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -25,15 +26,15 @@ import java.util.TimeZone
 
 class WomanCompanionViewModel(
     application: Application,
-    private val repository: WomanCompanionRepository
+    val repository: WomanCompanionRepository
 ) : AndroidViewModel(application) {
 
-    private val coroutineExceptionHandler = CoroutineExceptionHandler { _, throwable ->
+    internal val coroutineExceptionHandler = CoroutineExceptionHandler { _, throwable ->
         Log.e("WomanCompanionVM", "Unhandled exception in coroutine", throwable)
     }
 
     // Consolidated single SharedPreferences bucket for app-level flags
-    private val sharedPrefs = application.getSharedPreferences("woman_companion_prefs", Context.MODE_PRIVATE)
+    internal val sharedPrefs = application.getSharedPreferences("woman_companion_prefs", Context.MODE_PRIVATE)
 
     private val _isUpdatesBannerDismissed = MutableStateFlow(
         sharedPrefs.getBoolean("new_updates_banner_dismissed_v2", false)
@@ -102,11 +103,11 @@ class WomanCompanionViewModel(
             val diff = today - lastDate
             if (diff == 0L) {
                 // Already did a workout today, streak remains same
-            } else if (diff == oneDayMs) {
-                // Consecutive day
+            } else if (diff <= 2 * oneDayMs) {
+                // Consecutive day (diff == 1 day) or forgiving grace day (diff == 2 days): streak continues gently
                 streak += 1
             } else {
-                // Streak broken
+                // 2 or more consecutive missed days: gentle fresh start 🌱
                 streak = 1
             }
         } else {
@@ -125,6 +126,17 @@ class WomanCompanionViewModel(
     val apiKeyFlow = apiKeyRepository.apiKeyFlow
     val apiBaseUrlFlow = apiKeyRepository.apiBaseUrlFlow
     val modelNameFlow = apiKeyRepository.modelNameFlow
+    val cloudAiConsentFlow = apiKeyRepository.cloudAiConsentFlow
+
+    private val _cloudAiConsentState = MutableStateFlow(false)
+    val cloudAiConsentState: StateFlow<Boolean> = _cloudAiConsentState.asStateFlow()
+
+    fun setCloudAiConsent(consented: Boolean) {
+        viewModelScope.launch(coroutineExceptionHandler) {
+            apiKeyRepository.setCloudAiConsent(consented)
+            _cloudAiConsentState.value = consented
+        }
+    }
 
     private val _apiKeyTestStatus = MutableStateFlow<String?>(null) // "testing", "success", "error: <msg>", or null
     val apiKeyTestStatus: StateFlow<String?> = _apiKeyTestStatus.asStateFlow()
@@ -218,6 +230,9 @@ class WomanCompanionViewModel(
     val allMedicationsState: StateFlow<List<MedicationLog>> = repository.allMedicationsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val allMedicationAdherenceLogsState: StateFlow<List<MedicationAdherenceLog>> = repository.allMedicationAdherenceLogsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val symptomLogsState: StateFlow<List<SymptomLog>> = repository.allSymptomLogsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -235,6 +250,12 @@ class WomanCompanionViewModel(
 
     val journalEntriesState: StateFlow<List<JournalEntry>> = repository.allJournalEntriesFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allContraceptiveMethodsState: StateFlow<List<ContraceptiveMethod>> = repository.allContraceptiveMethods
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val activeContraceptiveMethodState: StateFlow<ContraceptiveMethod?> = repository.activeContraceptiveMethod
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val qadaFastsState: StateFlow<List<QadaFast>> = repository.allQadaFastsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -272,6 +293,43 @@ class WomanCompanionViewModel(
     val allFetalGrowthLogsState: StateFlow<List<FetalGrowthLog>> = repository.allFetalGrowthLogsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // --- مدة النفاس بالأيام (Configurable Nifas Duration Days State) ---
+    private val _nifasDurationDaysState = MutableStateFlow(sharedPrefs.getInt("nifas_duration_days", 40))
+    val nifasDurationDaysState: StateFlow<Int> = _nifasDurationDaysState.asStateFlow()
+
+    fun setNifasDurationDays(days: Int) {
+        val validDays = days.coerceIn(1, 120)
+        sharedPrefs.edit().putInt("nifas_duration_days", validDays).apply()
+        _nifasDurationDaysState.value = validDays
+    }
+
+    // --- إظهار ذكريات الحمل السابقة (Show Past Pregnancy Memories State) ---
+    private val _showPastPregnancyMemoriesState = MutableStateFlow(sharedPrefs.getBoolean("show_past_pregnancy_memories", true))
+    val showPastPregnancyMemoriesState: StateFlow<Boolean> = _showPastPregnancyMemoriesState.asStateFlow()
+
+    fun setShowPastPregnancyMemories(enabled: Boolean) {
+        _showPastPregnancyMemoriesState.value = enabled
+        sharedPrefs.edit().putBoolean("show_past_pregnancy_memories", enabled).apply()
+    }
+
+    // --- حالة شارة التصدير والنسخ الاحتياطي (Backup Export Achievement State) ---
+    private val _hasExportedBackupState = MutableStateFlow(sharedPrefs.getBoolean("badge_backup_exported", false))
+    val hasExportedBackupState: StateFlow<Boolean> = _hasExportedBackupState.asStateFlow()
+
+    fun markBackupExported() {
+        _hasExportedBackupState.value = true
+        sharedPrefs.edit().putBoolean("badge_backup_exported", true).apply()
+    }
+
+    // --- حالة شارة تقرير الطبيبة (Doctor Report Achievement State) ---
+    private val _hasGeneratedDoctorReportState = MutableStateFlow(sharedPrefs.getBoolean("badge_doctor_report_generated", false))
+    val hasGeneratedDoctorReportState: StateFlow<Boolean> = _hasGeneratedDoctorReportState.asStateFlow()
+
+    fun markDoctorReportGenerated() {
+        _hasGeneratedDoctorReportState.value = true
+        sharedPrefs.edit().putBoolean("badge_doctor_report_generated", true).apply()
+    }
+
     // --- Active Tools SubScreen State (for cross-screen navigation/direction) ---
     private val _activeSubScreen = MutableStateFlow<String?>(null)
     val activeSubScreen: StateFlow<String?> = _activeSubScreen.asStateFlow()
@@ -280,26 +338,39 @@ class WomanCompanionViewModel(
         _activeSubScreen.value = screen
     }
 
-    val todayStepLogState: StateFlow<StepLog?> = flow {
-        val today = getStartOfDay()
-        emitAll(repository.getStepLogForDateFlow(today))
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private val currentDayTick: Flow<Long> = flow {
+        while (true) {
+            val today = getStartOfDay()
+            emit(today)
+            val nextMidnight = today + 24 * 60 * 60 * 1000L
+            val delayMs = (nextMidnight - System.currentTimeMillis()).coerceAtLeast(1000L)
+            kotlinx.coroutines.delay(delayMs)
+        }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val todayStepLogState: StateFlow<StepLog?> = currentDayTick
+        .flatMapLatest { today -> repository.getStepLogForDateFlow(today) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     // --- Weather States ---
     private val _weatherState = MutableStateFlow<WeatherInfo?>(null)
     val weatherState: StateFlow<WeatherInfo?> = _weatherState.asStateFlow()
 
     // Current day's logs
-    val todayWaterLogState: StateFlow<WaterLog?> = flow {
-        val today = getStartOfDay()
-        emitAll(repository.getWaterLogForDateFlow(today))
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val todayWaterLogState: StateFlow<WaterLog?> = currentDayTick
+        .flatMapLatest { today -> repository.getWaterLogForDateFlow(today) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    val todayNutritionLogsState: StateFlow<List<NutritionLog>> = flow {
-        val start = getStartOfDay()
-        val end = start + 24 * 60 * 60 * 1000
-        emitAll(repository.getNutritionLogsForDayFlow(start, end))
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val todayNutritionLogsState: StateFlow<List<NutritionLog>> = currentDayTick
+        .flatMapLatest { start ->
+            val end = start + 24 * 60 * 60 * 1000L
+            repository.getNutritionLogsForDayFlow(start, end)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // --- Dynamic UI State ---
     private val _isLocked = MutableStateFlow(false)
@@ -375,7 +446,7 @@ class WomanCompanionViewModel(
                     _isGitHubUpdateAvailable.value = false
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                com.example.util.AppLogger.w("WomanCompanionViewModel", "Failed to check GitHub matrix updates", e)
             }
         }
     }
@@ -423,7 +494,7 @@ class WomanCompanionViewModel(
                     )
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                com.example.util.AppLogger.w("WomanCompanionViewModel", "Failed to restore profile in init", e)
             }
         }
 
@@ -736,16 +807,7 @@ class WomanCompanionViewModel(
         }
     }
 
-    fun calculateAge(birthDateMs: Long): Int {
-        val birthCal = java.util.Calendar.getInstance()
-        birthCal.timeInMillis = birthDateMs
-        val todayCal = java.util.Calendar.getInstance()
-        var calculatedAge = todayCal.get(java.util.Calendar.YEAR) - birthCal.get(java.util.Calendar.YEAR)
-        if (todayCal.get(java.util.Calendar.DAY_OF_YEAR) < birthCal.get(java.util.Calendar.DAY_OF_YEAR)) {
-            calculatedAge--
-        }
-        return calculatedAge.coerceAtLeast(0)
-    }
+    fun calculateAge(birthDateMs: Long): Int = WomanCompanionCalculators.calculateAge(birthDateMs)
 
     fun clearPregnancy() {
         viewModelScope.launch(coroutineExceptionHandler) {
@@ -876,6 +938,7 @@ class WomanCompanionViewModel(
             } else {
                 repository.insertWaterLog(WaterLog(date = today, amountMl = amountMl))
             }
+            WomanCompanionAppWidget.updateAllWidgets(getApplication())
         }
     }
 
@@ -886,6 +949,7 @@ class WomanCompanionViewModel(
             if (existing != null) {
                 repository.insertWaterLog(existing.copy(amountMl = 0))
             }
+            WomanCompanionAppWidget.updateAllWidgets(getApplication())
         }
     }
 
@@ -1005,6 +1069,24 @@ class WomanCompanionViewModel(
             val insertedId = repository.insertMedication(med).toInt()
             val createdMed = med.copy(id = insertedId)
             ReminderScheduler.scheduleMedicationReminders(getApplication(), createdMed)
+            WomanCompanionAppWidget.updateAllWidgets(getApplication())
+        }
+    }
+
+    fun recordMedicationAdherence(
+        medicationId: Int,
+        scheduledTime: Long = System.currentTimeMillis(),
+        status: String = "TAKEN"
+    ) {
+        viewModelScope.launch(coroutineExceptionHandler) {
+            val log = MedicationAdherenceLog(
+                medicationId = medicationId,
+                scheduledTime = scheduledTime,
+                actualTime = if (status == "TAKEN") System.currentTimeMillis() else null,
+                status = status
+            )
+            repository.insertMedicationAdherenceLog(log)
+            WomanCompanionAppWidget.updateAllWidgets(getApplication())
         }
     }
 
@@ -1013,6 +1095,7 @@ class WomanCompanionViewModel(
             val currentRemaining = medication.remainingQuantity
             val nextRemaining = (currentRemaining - amount).coerceAtLeast(0)
             repository.insertMedication(medication.copy(remainingQuantity = nextRemaining))
+            WomanCompanionAppWidget.updateAllWidgets(getApplication())
         }
     }
 
@@ -1026,6 +1109,18 @@ class WomanCompanionViewModel(
             } else {
                 ReminderScheduler.scheduleMedicationReminders(getApplication(), updated)
             }
+            WomanCompanionAppWidget.updateAllWidgets(getApplication())
+        }
+    }
+
+    fun updateMedication(medication: MedicationLog) {
+        viewModelScope.launch(coroutineExceptionHandler) {
+            repository.insertMedication(medication)
+            ReminderScheduler.cancelMedicationReminders(getApplication(), medication.id, medication.timesPerDay)
+            if (medication.isActive) {
+                ReminderScheduler.scheduleMedicationReminders(getApplication(), medication)
+            }
+            WomanCompanionAppWidget.updateAllWidgets(getApplication())
         }
     }
 
@@ -1033,6 +1128,7 @@ class WomanCompanionViewModel(
         viewModelScope.launch(coroutineExceptionHandler) {
             ReminderScheduler.cancelMedicationReminders(getApplication(), medication.id, medication.timesPerDay)
             repository.deleteMedication(medication)
+            WomanCompanionAppWidget.updateAllWidgets(getApplication())
         }
     }
 
@@ -1132,10 +1228,27 @@ class WomanCompanionViewModel(
 
     fun addFetalGrowthLog(week: Int, weightGrams: Double, lengthCm: Double, notes: String?) {
         viewModelScope.launch(coroutineExceptionHandler) {
-            val activePregnancyId = pregnancyState.value?.id ?: 1
+            val activePregnancy = pregnancyState.value
+            val targetPregnancyId = if (activePregnancy != null && activePregnancy.isPregnant) {
+                activePregnancy.id
+            } else {
+                // If not actively set in state, check database or create an active pregnancy record
+                val all = repository.allPregnanciesFlow.firstOrNull() ?: emptyList()
+                val current = all.firstOrNull { it.isPregnant } ?: all.firstOrNull()
+                current?.id ?: run {
+                    val defaultLmp = System.currentTimeMillis() - (week.toLong() * 7L * 24L * 60L * 60L * 1000L)
+                    val newId = repository.savePregnancy(
+                        PregnancyEntity(
+                            lastPeriodDate = defaultLmp,
+                            isPregnant = true
+                        )
+                    ).toInt()
+                    newId
+                }
+            }
             repository.insertFetalGrowthLog(
                 FetalGrowthLog(
-                    pregnancyId = activePregnancyId,
+                    pregnancyId = targetPregnancyId,
                     pregnancyWeek = week,
                     weightGrams = weightGrams,
                     lengthCm = lengthCm,
@@ -1389,7 +1502,7 @@ class WomanCompanionViewModel(
                     prefs.edit().putString("last_synced_hash", currentHash).apply()
                     _isGitHubUpdateAvailable.value = false
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    com.example.util.AppLogger.w("WomanCompanionViewModel", "Failed to save synced hash", e)
                 }
                 _gitHubSyncStatus.value = "تم التحديث بنجاح! مزامنة مصفوفة جوري مكتملة ✅"
             } else {
@@ -1479,171 +1592,26 @@ class WomanCompanionViewModel(
     // --- Complex Calculations ---
 
     // Average cycle length and duration helper
-    fun getCycleStats(): CycleStats {
-        val logs = periodLogsState.value.sortedBy { it.startDate }
-        if (logs.size < 2) {
-            return CycleStats(averageCycleLength = 28, averagePeriodDuration = 5, totalCycles = logs.size, isEstimated = true)
-        }
+    fun getCycleStats(): CycleStats = WomanCompanionCalculators.getCycleStats(periodLogsState.value)
 
-        var totalCycleLength = 0L
-        var cycleCount = 0
-        for (i in 1 until logs.size) {
-            val diffMs = logs[i].startDate - logs[i-1].startDate
-            val diffDays = diffMs / (24 * 60 * 60 * 1000)
-            if (diffDays in 15..50) { // filter outliers to make predictive metrics realistic
-                totalCycleLength += diffDays
-                cycleCount++
-            }
-        }
+    // Cycle irregularity pattern detection (local rules, non-diagnostic)
+    fun detectCycleIrregularityPatterns(): List<IrregularityNotice> =
+        WomanCompanionCalculators.detectCycleIrregularityPatterns(periodLogsState.value, symptomLogsState.value)
 
-        var totalPeriodDuration = 0L
-        var validDurationCount = 0
-        for (log in logs) {
-            if (log.endDate != null) {
-                val durDays = (log.endDate - log.startDate) / (24 * 60 * 60 * 1000)
-                if (durDays in 1..15) {
-                    totalPeriodDuration += durDays
-                    validDurationCount++
-                }
-            }
-        }
-
-        val avgCycle = if (cycleCount > 0) (totalCycleLength / cycleCount).toInt() else 28
-        val avgDuration = if (validDurationCount > 0) (totalPeriodDuration / validDurationCount).toInt() else 5
-
-        return CycleStats(
-            averageCycleLength = avgCycle,
-            averagePeriodDuration = avgDuration,
-            totalCycles = cycleCount,
-            isEstimated = cycleCount == 0
-        )
-    }
+    // Check if any cycle irregularity pattern is detected
+    fun checkCycleIrregularity(): Boolean = detectCycleIrregularityPatterns().isNotEmpty()
 
     // Detect current menstrual cycle phase or late period
-    fun getCurrentCyclePhase(): CyclePhaseInfo {
-        val stats = getCycleStats()
-        val logs = periodLogsState.value.sortedByDescending { it.startDate }
-        if (logs.isEmpty()) {
-            return CyclePhaseInfo(
-                phaseName = "غير محدد",
-                phaseArabic = "بيانات غير كافية",
-                daysInPhase = 0,
-                progressFraction = 0f,
-                description = "سجّلي أول دورة شهرية لبدء التتبع التنبؤي الذكي للخصوبة والأطوار."
-            )
-        }
-
-        val lastLog = logs.first()
-        val currentMs = getCurrentTime()
-        val daysSinceStart = ((currentMs - lastLog.startDate) / (24 * 60 * 60 * 1000)).toInt().coerceAtLeast(0)
-
-        // Late period detection (Is it possible pregnancy?)
-        val delayDays = daysSinceStart - stats.averageCycleLength
-        if (delayDays >= 7) {
-            return CyclePhaseInfo(
-                phaseName = "Late",
-                phaseArabic = "متأخرة عن موعدها ⚠️",
-                daysInPhase = delayDays,
-                progressFraction = 1f,
-                description = "الدورة متأخرة بـ $delayDays أيام عن متوسط دورتك المعتاد. هل هناك احتمال للحمل؟ يمكنكِ إجراء اختبار منزلي وتحديث حالتكِ.",
-                isLate = true
-            )
-        }
-
-        val cycleLength = stats.averageCycleLength
-        val duration = stats.averagePeriodDuration
-
-        return when {
-            daysSinceStart < duration -> {
-                CyclePhaseInfo(
-                    phaseName = "Menstruation",
-                    phaseArabic = "طمث / حيض 🩸",
-                    daysInPhase = daysSinceStart + 1,
-                    progressFraction = (daysSinceStart + 1).toFloat() / duration.toFloat(),
-                    description = "أنتِ الآن في طور الحيض. ركّزي على الراحة، اشربي سوائل دافئة، والعبادات معفاة منها حالياً."
-                )
-            }
-            daysSinceStart < (cycleLength - 16) -> {
-                CyclePhaseInfo(
-                    phaseName = "Follicular",
-                    phaseArabic = "الطور الجريبي 🌱",
-                    daysInPhase = daysSinceStart - duration + 1,
-                    progressFraction = (daysSinceStart - duration + 1).toFloat() / (cycleLength - 16 - duration).toFloat().coerceAtLeast(1f),
-                    description = "يبدأ الجسم بالاستعداد لإنتاج البويضة. طاقة أعلى وتألق مستمر."
-                )
-            }
-            daysSinceStart <= (cycleLength - 12) -> {
-                val ovulationDays = daysSinceStart - (cycleLength - 16) + 1
-                CyclePhaseInfo(
-                    phaseName = "Ovulation",
-                    phaseArabic = "طور الإباضة ✨",
-                    daysInPhase = ovulationDays,
-                    progressFraction = ovulationDays.toFloat() / 5f,
-                    description = "فترة الخصوبة العالية والتبويض. مثالية لمتابعة الخصوبة وفرص الحمل."
-                )
-            }
-            else -> {
-                val lutealDays = daysSinceStart - (cycleLength - 12) + 1
-                CyclePhaseInfo(
-                    phaseName = "Luteal",
-                    phaseArabic = "الطور اللوتيني 🪵",
-                    daysInPhase = lutealDays,
-                    progressFraction = lutealDays.toFloat() / 12f,
-                    description = "فترة ما قبل الدورة التالية. قد تظهر بعض أعراض متلازمة ما قبل الطمث. كوني لطيفة مع نفسك."
-                )
-            }
-        }
-    }
+    fun getCurrentCyclePhase(): CyclePhaseInfo =
+        WomanCompanionCalculators.getCurrentCyclePhase(periodLogsState.value, getCurrentTime())
 
     // Pregnancy progression details
-    fun getPregnancyProgression(): PregnancyProgression? {
-        val preg = pregnancyState.value ?: return null
-        if (!preg.isPregnant) return null
-        val lastPeriod = preg.lastPeriodDate ?: return null
-        val currentMs = getCurrentTime()
-
-        val totalDurationDays = 280L
-        val passedDays = ((currentMs - lastPeriod) / (24L * 60 * 60 * 1000)).coerceAtLeast(0)
-        val passedWeeks = (passedDays / 7).toInt()
-        val remainingDays = (totalDurationDays - passedDays).coerceAtLeast(0)
-
-        val currentTrimester = when {
-            passedWeeks < 13 -> 1
-            passedWeeks < 27 -> 2
-            else -> 3
-        }
-
-        // Fetal comparisons
-        val comparison = getFetalComparison(passedWeeks)
-
-        return PregnancyProgression(
-            weeks = passedWeeks,
-            daysIntoWeek = (passedDays % 7).toInt(),
-            remainingDays = remainingDays.toInt(),
-            trimester = currentTrimester,
-            dueDate = preg.dueDate ?: (lastPeriod + totalDurationDays * 24 * 60 * 60 * 1000),
-            comparisonName = comparison.name,
-            comparisonIcon = comparison.icon,
-            developmentTip = comparison.developmentTip
-        )
-    }
-
-    private fun getFetalComparison(weeks: Int): FetalComparison {
-        val clampedWeek = weeks.coerceIn(1, 42)
-        val standard = com.example.ui.FetalStandardData.getStandardForWeek(clampedWeek)
-        return FetalComparison(
-            name = standard.fruitComparison,
-            icon = standard.icon,
-            developmentTip = standard.description
-        )
-    }
+    fun getPregnancyProgression(): PregnancyProgression? =
+        WomanCompanionCalculators.getPregnancyProgression(pregnancyState.value, getCurrentTime())
 
     // Dynamic water target: 2000ml default. If pregnant, add 500ml. Also adds extra weather-based hydration requirements.
-    fun getWaterTarget(): Int {
-        val base = if (pregnancyState.value != null) 2500 else 2000
-        val extra = weatherState.value?.extraWaterMl ?: 0
-        return base + extra
-    }
+    fun getWaterTarget(): Int =
+        WomanCompanionCalculators.getWaterTarget(pregnancyState.value != null, weatherState.value?.extraWaterMl ?: 0)
 
     // Dynamic nutrition target: Base 2000kcal. Adjust based on Pregnancy Trimester, BMI pre-pregnancy, and daily step goal.
     fun getCalorieTarget(): CalorieGoal {
@@ -1673,8 +1641,8 @@ class WomanCompanionViewModel(
         }
 
         val bmiAdjustment = when (preg.bmiCategory) {
-            "Underweight" -> 200 // suggest a slight healthy surplus
-            "Obese" -> -100 // cautious
+            "Underweight" -> 200
+            "Obese" -> -100
             else -> 0
         }
 
@@ -1689,31 +1657,8 @@ class WomanCompanionViewModel(
         return CalorieGoal(target = finalGoal, details = details)
     }
 
-    data class NutrientTarget(
-        val name: String,
-        val targetVal: Double,
-        val unit: String,
-        val isLimit: Boolean = false
-    )
-
-    fun getNutrientTargets(): Map<String, NutrientTarget> {
-        val isPreg = pregnancyState.value != null
-        return mapOf(
-            "protein" to NutrientTarget("البروتين", if (isPreg) 75.0 else 60.0, "جم"),
-            "carbs" to NutrientTarget("النشويات", if (isPreg) 195.0 else 150.0, "جم"),
-            "fat" to NutrientTarget("الدهون", if (isPreg) 75.0 else 65.0, "جم"),
-            "sugar" to NutrientTarget("السكريات", 30.0, "جم", isLimit = true),
-            "fiber" to NutrientTarget("الألياف", if (isPreg) 28.0 else 25.0, "جم"),
-            "iron" to NutrientTarget("الحديد", if (isPreg) 27.0 else 18.0, "ملجم"),
-            "calcium" to NutrientTarget("الكالسيوم", 1000.0, "ملجم"),
-            "folate" to NutrientTarget("الفوليك", if (isPreg) 600.0 else 400.0, "مكجم"),
-            "potassium" to NutrientTarget("البوتاسيوم", 4700.0, "ملجم"),
-            "sodium" to NutrientTarget("الصوديوم", 2000.0, "ملجم", isLimit = true),
-            "magnesium" to NutrientTarget("الماغنسيوم", if (isPreg) 360.0 else 320.0, "ملجم"),
-            "vitaminC" to NutrientTarget("فيتامين سي", if (isPreg) 85.0 else 75.0, "ملجم"),
-            "vitaminA" to NutrientTarget("فيتامين أ", if (isPreg) 770.0 else 700.0, "مكجم")
-        )
-    }
+    fun getNutrientTargets(): Map<String, NutrientTarget> =
+        WomanCompanionCalculators.getNutrientTargets(pregnancyState.value != null)
 
     // Checking for 5-1-1 contraction warning
     fun checkContractionWarning(): Boolean {
@@ -1725,333 +1670,73 @@ class WomanCompanionViewModel(
         val allLastHour = last3.all { getCurrentTime() - it.startTime <= 60 * 60 * 1000 }
         if (!allLastHour) return false
 
-        val meanDurationOk = last3.all { it.durationSeconds >= 45 } // around 1 minute (45s to 60s)
-        val meanIntervalOk = last3.dropLast(1).all { it.intervalSeconds in 180..360 } // every 3 to 6 minutes
+        val meanDurationOk = last3.all { it.durationSeconds >= 45 }
+        val meanIntervalOk = last3.dropLast(1).all { it.intervalSeconds in 180..360 }
 
         return meanDurationOk && meanIntervalOk
     }
 
-    // ==========================================
-    // --- مؤونتي (Maonaty) Smart Home Functions ---
-    // ==========================================
-
-    fun addInventoryItem(name: String, category: String, quantity: Double, minQuantity: Double, unit: String, priceEstimate: Double, id: Int = 0) {
+    // --- Contraceptive Methods Actions ---
+    fun addContraceptiveMethod(type: String, startDate: Long, notes: String? = null) {
         viewModelScope.launch(coroutineExceptionHandler) {
-            repository.insertInventoryItem(
-                MaonatyInventoryItem(
-                    id = id,
-                    name = name,
-                    category = category,
-                    quantity = quantity,
-                    minQuantity = minQuantity,
-                    unit = unit,
-                    priceEstimate = priceEstimate
-                )
+            activeContraceptiveMethodState.value?.let { active ->
+                repository.updateContraceptiveMethod(active.copy(endDate = startDate))
+            }
+            repository.insertContraceptiveMethod(
+                ContraceptiveMethod(type = type, startDate = startDate, notes = notes)
             )
         }
     }
 
-    fun deleteInventoryItem(item: MaonatyInventoryItem) {
+    fun endContraceptiveMethod(methodId: Int, endDate: Long = System.currentTimeMillis()) {
         viewModelScope.launch(coroutineExceptionHandler) {
-            repository.deleteInventoryItem(item)
-        }
-    }
-
-    fun clearInventory() {
-        viewModelScope.launch(coroutineExceptionHandler) {
-            repository.clearInventory()
-        }
-    }
-
-    fun addShoppingItem(name: String, category: String, quantity: Double, unit: String, price: Double, autoGenerated: Boolean = false) {
-        viewModelScope.launch(coroutineExceptionHandler) {
-            repository.insertShoppingItem(
-                MaonatyShoppingItem(
-                    name = name,
-                    category = category,
-                    quantity = quantity,
-                    unit = unit,
-                    price = price,
-                    autoGenerated = autoGenerated
-                )
-            )
-        }
-    }
-
-    fun deleteShoppingItem(item: MaonatyShoppingItem) {
-        viewModelScope.launch(coroutineExceptionHandler) {
-            repository.deleteShoppingItem(item)
-        }
-    }
-
-    fun toggleShoppingItemBought(item: MaonatyShoppingItem) {
-        viewModelScope.launch(coroutineExceptionHandler) {
-            repository.updateShoppingItemStatus(item.id, !item.isBought)
-        }
-    }
-
-    fun clearShoppingList() {
-        viewModelScope.launch(coroutineExceptionHandler) {
-            repository.clearShoppingList()
-        }
-    }
-
-    fun addHouseholdTask(title: String, category: String, priority: String, dueDate: Long) {
-        viewModelScope.launch(coroutineExceptionHandler) {
-            repository.insertHouseholdTask(
-                MaonatyHouseholdTask(
-                    title = title,
-                    category = category,
-                    priority = priority,
-                    dueDate = dueDate
-                )
-            )
-        }
-    }
-
-    fun deleteHouseholdTask(task: MaonatyHouseholdTask) {
-        viewModelScope.launch(coroutineExceptionHandler) {
-            repository.deleteHouseholdTask(task)
-        }
-    }
-
-    fun toggleTaskCompleted(task: MaonatyHouseholdTask) {
-        viewModelScope.launch(coroutineExceptionHandler) {
-            repository.updateTaskStatus(task.id, !task.isCompleted)
-        }
-    }
-
-    fun clearHouseholdTasks() {
-        viewModelScope.launch(coroutineExceptionHandler) {
-            repository.clearHouseholdTasks()
-        }
-    }
-
-    // Auto-Shopping List Generation based on low stock inventory
-    fun generateAutoShoppingList() {
-        viewModelScope.launch(coroutineExceptionHandler) {
-            val inventory = allInventoryItemsState.value
-            val currentShopping = allShoppingItemsState.value
-            
-            inventory.forEach { invItem ->
-                if (invItem.quantity <= invItem.minQuantity) {
-                    // Check if already in shopping list (and not bought yet)
-                    val alreadyAdded = currentShopping.any { shopItem ->
-                        shopItem.name.trim().equals(invItem.name.trim(), ignoreCase = true) && !shopItem.isBought
-                    }
-                    if (!alreadyAdded) {
-                        // Calculate standard top-up quantity (e.g. restore to 2x minQuantity or at least 1.0)
-                        val buyQty = ((invItem.minQuantity * 2.0) - invItem.quantity).coerceAtLeast(1.0)
-                        repository.insertShoppingItem(
-                            MaonatyShoppingItem(
-                                name = invItem.name,
-                                category = invItem.category,
-                                quantity = buyQty,
-                                unit = invItem.unit,
-                                price = invItem.priceEstimate,
-                                isBought = false,
-                                autoGenerated = true
-                            )
-                        )
-                    }
-                }
+            val method = allContraceptiveMethodsState.value.find { it.id == methodId }
+            if (method != null) {
+                repository.updateContraceptiveMethod(method.copy(endDate = endDate))
             }
         }
     }
 
-    // Seed realistic sample data
-    fun populateMaonatySampleData() {
+    fun deleteContraceptiveMethod(method: ContraceptiveMethod) {
         viewModelScope.launch(coroutineExceptionHandler) {
-            // Check if inventory is empty
-            if (allInventoryItemsState.value.isEmpty()) {
-                val samples = listOf(
-                    MaonatyInventoryItem(name = "أرز مصري فاخر", category = "معلبات وحبوب", quantity = 0.5, minQuantity = 2.0, unit = "كيلوجرام", priceEstimate = 35.0),
-                    MaonatyInventoryItem(name = "مكرونة قلم", category = "معلبات وحبوب", quantity = 1.0, minQuantity = 3.0, unit = "كيس", priceEstimate = 15.0),
-                    MaonatyInventoryItem(name = "زيت عباد الشمس", category = "معلبات وحبوب", quantity = 0.4, minQuantity = 1.0, unit = "لتر", priceEstimate = 80.0),
-                    MaonatyInventoryItem(name = "حليب كامل الدسم", category = "منتجات ألبان", quantity = 3.0, minQuantity = 1.0, unit = "لتر", priceEstimate = 40.0),
-                    MaonatyInventoryItem(name = "جبنة بيضاء فيتا", category = "منتجات ألبان", quantity = 0.25, minQuantity = 0.5, unit = "كيلوجرام", priceEstimate = 60.0),
-                    MaonatyInventoryItem(name = "طماطم طازجة", category = "خضار وفواكه", quantity = 0.5, minQuantity = 1.5, unit = "كيلوجرام", priceEstimate = 15.0),
-                    MaonatyInventoryItem(name = "ليمون أصفر", category = "خضار وفواكه", quantity = 1.0, minQuantity = 0.5, unit = "كيلوجرام", priceEstimate = 25.0),
-                    MaonatyInventoryItem(name = "صدور فراخ بانيه", category = "لحوم ودواجن", quantity = 0.0, minQuantity = 1.0, unit = "كيلوجرام", priceEstimate = 220.0),
-                    MaonatyInventoryItem(name = "بهارات لحمة مشكلة", category = "بهارات وتوابل", quantity = 50.0, minQuantity = 100.0, unit = "جرام", priceEstimate = 0.5),
-                    MaonatyInventoryItem(name = "مسحوق غسيل ملابس", category = "أدوات تنظيف", quantity = 2.5, minQuantity = 1.0, unit = "كيلوجرام", priceEstimate = 180.0),
-                    MaonatyInventoryItem(name = "ملح طعام ناعم", category = "بهارات وتوابل", quantity = 3.0, minQuantity = 1.0, unit = "كيس", priceEstimate = 5.0)
-                )
-                samples.forEach { repository.insertInventoryItem(it) }
-            }
-
-            // Check if tasks are empty
-            if (allHouseholdTasksState.value.isEmpty()) {
-                val baseTime = System.currentTimeMillis()
-                val tasks = listOf(
-                    MaonatyHouseholdTask(title = "🧼 تنظيف الثلاجة وترتيب أرفف المطبخ", category = "🧼 تنظيف وترتيب", priority = "⚡ متوسط", dueDate = baseTime + 24 * 60 * 60 * 1000),
-                    MaonatyHouseholdTask(title = "🛠️ تغيير فلتر مياه المطبخ السبع مراحل", category = "🛠️ صيانة وأعطال", priority = "🔴 عاجل", dueDate = baseTime + 2 * 24 * 60 * 60 * 1000),
-                    MaonatyHouseholdTask(title = "📦 جرد الخزانة وجهاز التكييف قبل الصيف", category = "📦 جرد وتخزين", priority = "🟢 عادي", dueDate = baseTime + 5 * 24 * 60 * 60 * 1000),
-                    MaonatyHouseholdTask(title = "📅 سداد فاتورة الكهرباء والغاز الطبيعي", category = "📅 شؤون منزلية", priority = "🔴 عاجل", dueDate = baseTime + 12 * 60 * 60 * 1000)
-                )
-                tasks.forEach { repository.insertHouseholdTask(it) }
-            }
+            repository.deleteContraceptiveMethod(method)
         }
     }
 
-    // Export local Ma'onaty data as JSON String
-    fun exportMaonatyBackup(): String {
-        return try {
-            val root = org.json.JSONObject()
-            
-            val invArray = org.json.JSONArray()
-            allInventoryItemsState.value.forEach {
-                val obj = org.json.JSONObject()
-                obj.put("name", it.name)
-                obj.put("category", it.category)
-                obj.put("quantity", it.quantity)
-                obj.put("minQuantity", it.minQuantity)
-                obj.put("unit", it.unit)
-                obj.put("priceEstimate", it.priceEstimate)
-                invArray.put(obj)
-            }
-            root.put("inventory", invArray)
+    fun calculateDaysBetween(startDateMs: Long, targetDateMs: Long): Long =
+        WomanCompanionCalculators.calculateDaysBetween(startDateMs, targetDateMs)
 
-            val shopArray = org.json.JSONArray()
-            allShoppingItemsState.value.forEach {
-                val obj = org.json.JSONObject()
-                obj.put("name", it.name)
-                obj.put("category", it.category)
-                obj.put("quantity", it.quantity)
-                obj.put("unit", it.unit)
-                obj.put("price", it.price)
-                obj.put("isBought", it.isBought)
-                obj.put("autoGenerated", it.autoGenerated)
-                shopArray.put(obj)
-            }
-            root.put("shopping", shopArray)
+    fun getContraceptiveTypeName(type: String): String =
+        WomanCompanionCalculators.getContraceptiveTypeName(type)
 
-            val taskArray = org.json.JSONArray()
-            allHouseholdTasksState.value.forEach {
-                val obj = org.json.JSONObject()
-                obj.put("title", it.title)
-                obj.put("category", it.category)
-                obj.put("priority", it.priority)
-                obj.put("dueDate", it.dueDate)
-                obj.put("isCompleted", it.isCompleted)
-                taskArray.put(obj)
-            }
-            root.put("tasks", taskArray)
+    fun getContraceptiveContextForSymptom(symptomDateMs: Long): ContraceptiveSymptomContext? {
+        val methods = allContraceptiveMethodsState.value
+        val method = methods.find { m ->
+            symptomDateMs >= m.startDate && (m.endDate == null || symptomDateMs <= m.endDate)
+        } ?: return null
 
-            root.toString(2)
-        } catch (e: Exception) {
-            ""
-        }
+        val days = calculateDaysBetween(method.startDate, symptomDateMs)
+        val typeName = getContraceptiveTypeName(method.type)
+        return ContraceptiveSymptomContext(
+            methodType = method.type,
+            methodTypeName = typeName,
+            daysSinceStart = days,
+            formattedLabel = "بعد $days يوم من بدء $typeName"
+        )
     }
 
-    // Import Ma'onaty from JSON String
-    fun importMaonatyBackup(jsonString: String): Boolean {
-        return try {
-            val root = org.json.JSONObject(jsonString)
-            
-            viewModelScope.launch(coroutineExceptionHandler) {
-                // Parse Inventory
-                if (root.has("inventory")) {
-                    repository.clearInventory()
-                    val arr = root.getJSONArray("inventory")
-                    for (i in 0 until arr.length()) {
-                        val obj = arr.getJSONObject(i)
-                        repository.insertInventoryItem(
-                            MaonatyInventoryItem(
-                                name = obj.getString("name"),
-                                category = obj.getString("category"),
-                                quantity = obj.getDouble("quantity"),
-                                minQuantity = obj.getDouble("minQuantity"),
-                                unit = obj.getString("unit"),
-                                priceEstimate = obj.optDouble("priceEstimate", 0.0)
-                            )
-                        )
-                    }
-                }
+    // --- 💧 Smart Water Daytime Reminders Control ---
+    private val _isWaterReminderEnabled = MutableStateFlow(
+        sharedPrefs.getBoolean("water_reminders_enabled", false)
+    )
+    val isWaterReminderEnabled: StateFlow<Boolean> = _isWaterReminderEnabled.asStateFlow()
 
-                // Parse Shopping List
-                if (root.has("shopping")) {
-                    repository.clearShoppingList()
-                    val arr = root.getJSONArray("shopping")
-                    for (i in 0 until arr.length()) {
-                        val obj = arr.getJSONObject(i)
-                        repository.insertShoppingItem(
-                            MaonatyShoppingItem(
-                                name = obj.getString("name"),
-                                category = obj.getString("category"),
-                                quantity = obj.getDouble("quantity"),
-                                unit = obj.getString("unit"),
-                                price = obj.optDouble("price", 0.0),
-                                isBought = obj.optBoolean("isBought", false),
-                                autoGenerated = obj.optBoolean("autoGenerated", false)
-                            )
-                        )
-                    }
-                }
-
-                // Parse Tasks
-                if (root.has("tasks")) {
-                    repository.clearHouseholdTasks()
-                    val arr = root.getJSONArray("tasks")
-                    for (i in 0 until arr.length()) {
-                        val obj = arr.getJSONObject(i)
-                        repository.insertHouseholdTask(
-                            MaonatyHouseholdTask(
-                                title = obj.getString("title"),
-                                category = obj.getString("category"),
-                                priority = obj.getString("priority"),
-                                dueDate = obj.getLong("dueDate"),
-                                isCompleted = obj.optBoolean("isCompleted", false)
-                            )
-                        )
-                    }
-                }
-            }
-            true
-        } catch (e: Exception) {
-            false
-        }
+    fun toggleWaterReminders(enabled: Boolean) {
+        _isWaterReminderEnabled.value = enabled
+        sharedPrefs.edit().putBoolean("water_reminders_enabled", enabled).apply()
+        ReminderScheduler.scheduleDaytimeWaterReminders(getApplication(), enabled)
     }
 }
-
-// Support Data Classes
-data class CycleStats(
-    val averageCycleLength: Int,
-    val averagePeriodDuration: Int,
-    val totalCycles: Int,
-    val isEstimated: Boolean
-)
-
-data class CyclePhaseInfo(
-    val phaseName: String,
-    val phaseArabic: String,
-    val daysInPhase: Int,
-    val progressFraction: Float,
-    val description: String,
-    val isLate: Boolean = false
-)
-
-data class PregnancyProgression(
-    val weeks: Int,
-    val daysIntoWeek: Int,
-    val remainingDays: Int,
-    val trimester: Int,
-    val dueDate: Long,
-    val comparisonName: String,
-    val comparisonIcon: String,
-    val developmentTip: String
-)
-
-data class FetalComparison(
-    val name: String,
-    val icon: String,
-    val developmentTip: String
-)
-
-data class CalorieGoal(
-    val target: Int,
-    val details: String
-)
 
 // Factory Provider
 class WomanCompanionViewModelFactory(

@@ -98,10 +98,35 @@ object FetalStandardData {
         return ((actualWeightGrams - stdWeight) / stdWeight) * 100.0
     }
 
+    fun calculateLengthDeviation(loggedWeek: Int, actualLengthCm: Double): Double {
+        val stdLength = getStandardForWeek(loggedWeek).lengthCm
+        if (stdLength <= 0.0) return 0.0
+        return ((actualLengthCm - stdLength) / stdLength) * 100.0
+    }
+
     fun getEstimatedWeightGrams(week: Int, deviationPercent: Double?): Double {
         val stdWeight = getStandardForWeek(week).weightGrams
         if (deviationPercent == null || deviationPercent == 0.0) return stdWeight
         return stdWeight * (1.0 + deviationPercent / 100.0)
+    }
+
+    fun getEstimatedLengthCm(week: Int, deviationPercent: Double?): Double {
+        val stdLength = getStandardForWeek(week).lengthCm
+        if (deviationPercent == null || deviationPercent == 0.0) return stdLength
+        val res = stdLength * (1.0 + deviationPercent / 100.0)
+        return Math.round(res * 10.0) / 10.0
+    }
+
+    // تقدير الطول تلقائياً من الوزن المعطى (بالتناسب مع انحراف الأسبوع)
+    fun estimateLengthFromWeight(week: Int, actualWeightGrams: Double): Double {
+        val weightDev = calculateWeightDeviation(week, actualWeightGrams)
+        return getEstimatedLengthCm(week, weightDev)
+    }
+
+    // تقدير الوزن تلقائياً من الطول المعطى (بالتناسب مع انحراف الأسبوع)
+    fun estimateWeightFromLength(week: Int, actualLengthCm: Double): Double {
+        val lengthDev = calculateLengthDeviation(week, actualLengthCm)
+        return Math.round(getEstimatedWeightGrams(week, lengthDev)).toDouble()
     }
 }
 
@@ -362,8 +387,8 @@ fun FetalGrowthSubScreen(viewModel: WomanCompanionViewModel) {
         }
 
         // 3. Quick analysis card for the latest record
-        if (activePregnancyLogs.isNotEmpty()) {
-            val latestLog = activePregnancyLogs.maxByOrNull { it.pregnancyWeek }!!
+        val latestLog = activePregnancyLogs.maxByOrNull { it.pregnancyWeek }
+        if (latestLog != null) {
             val standard = FetalStandardData.getStandardForWeek(latestLog.pregnancyWeek)
             
             item {
@@ -680,45 +705,117 @@ fun FetalGrowthSubScreen(viewModel: WomanCompanionViewModel) {
                         )
                     }
 
-                    // Weight Input
-                    OutlinedTextField(
-                        value = weightInput,
-                        onValueChange = { weightInput = it },
-                        label = { Text("وزن الجنين (بالجرام)", color = SoftTheme.SoftGray) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("baby_weight_input"),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = SoftTheme.TextWhite,
-                            unfocusedTextColor = SoftTheme.TextWhite,
-                            focusedBorderColor = SoftTheme.SoftPink,
-                            unfocusedBorderColor = SoftTheme.DeepSlate
+                    // Weight Input + Estimation Action
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        OutlinedTextField(
+                            value = weightInput,
+                            onValueChange = { weightInput = it },
+                            label = { Text("وزن الجنين (بالجرام)", color = SoftTheme.SoftGray) },
+                            placeholder = { Text("مثال: 500") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("baby_weight_input"),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = SoftTheme.TextWhite,
+                                unfocusedTextColor = SoftTheme.TextWhite,
+                                focusedBorderColor = SoftTheme.SoftPink,
+                                unfocusedBorderColor = SoftTheme.DeepSlate
+                            )
                         )
-                    )
+                        val parsedLength = lengthInput.toDoubleOrNull()
+                        if (parsedLength != null && parsedLength > 0.0) {
+                            val estimatedW = FetalStandardData.estimateWeightFromLength(selectedWeek, parsedLength)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "💡 الوزن المقدر من الطول: ${estimatedW.toInt()} جرام",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = SoftTheme.MintTeal,
+                                    fontSize = 11.sp
+                                )
+                                TextButton(
+                                    onClick = { weightInput = estimatedW.toInt().toString() },
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                                ) {
+                                    Text("تعبئة تلقائية 🪄", color = SoftTheme.SoftPink, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
 
-                    // Length Input
-                    OutlinedTextField(
-                        value = lengthInput,
-                        onValueChange = { lengthInput = it },
-                        label = { Text("طول الجنين (بالسنتيمتر)", color = SoftTheme.SoftGray) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("baby_length_input"),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = SoftTheme.TextWhite,
-                            unfocusedTextColor = SoftTheme.TextWhite,
-                            focusedBorderColor = SoftTheme.SoftPink,
-                            unfocusedBorderColor = SoftTheme.DeepSlate
+                    // Length Input + Estimation Action
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        OutlinedTextField(
+                            value = lengthInput,
+                            onValueChange = { lengthInput = it },
+                            label = { Text("طول الجنين (بالسنتيمتر)", color = SoftTheme.SoftGray) },
+                            placeholder = { Text("مثال: 28.0") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("baby_length_input"),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = SoftTheme.TextWhite,
+                                unfocusedTextColor = SoftTheme.TextWhite,
+                                focusedBorderColor = SoftTheme.SoftPink,
+                                unfocusedBorderColor = SoftTheme.DeepSlate
+                            )
                         )
-                    )
+                        val parsedWeight = weightInput.toDoubleOrNull()
+                        if (parsedWeight != null && parsedWeight > 0.0) {
+                            val estimatedL = FetalStandardData.estimateLengthFromWeight(selectedWeek, parsedWeight)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "💡 الطول المقدر من الوزن: $estimatedL سم",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = SoftTheme.MintTeal,
+                                    fontSize = 11.sp
+                                )
+                                TextButton(
+                                    onClick = { lengthInput = estimatedL.toString() },
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+                                ) {
+                                    Text("تعبئة تلقائية 🪄", color = SoftTheme.SoftPink, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+
+                    // Helper Note for Smart Estimation
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = SoftTheme.DeepSlate.copy(alpha = 0.6f)),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text("✨", fontSize = 16.sp)
+                            Text(
+                                text = "إذا لم يتوفر لديكِ أحد القياسين من السونار (الوزن أو الطول)، اتركي خانته فارغة وسيقوم التطبيق بحسابه وتقديره تلقائياً بدقة بناءً على قياس الآخر ومنحنى النمو!",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = SoftTheme.SoftGray,
+                                fontSize = 11.sp,
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
 
                     // Notes Input
                     OutlinedTextField(
                         value = notesInput,
                         onValueChange = { notesInput = it },
-                        label = { Text("ملاحظات الطبيب / العيادة", color = SoftTheme.SoftGray) },
+                        label = { Text("ملاحظات الطبيب / العيادة (اختياري)", color = SoftTheme.SoftGray) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("growth_notes_input"),
@@ -738,28 +835,37 @@ fun FetalGrowthSubScreen(viewModel: WomanCompanionViewModel) {
             confirmButton = {
                 Button(
                     onClick = {
-                        val weight = weightInput.toDoubleOrNull()
-                        val length = lengthInput.toDoubleOrNull()
-                        if (weight == null || weight <= 0.0) {
-                            isErrorMsg = "برجاء إدخال وزن جنين صحيح بالجرام."
-                            return@Button
-                        }
-                        if (length == null || length <= 0.0) {
-                            isErrorMsg = "برجاء إدخال طول جنين صحيح بالسنتيمتر."
-                            return@Button
-                        }
-                        
-                        viewModel.addFetalGrowthLog(
-                            week = selectedWeek,
-                            weightGrams = weight,
-                            lengthCm = length,
-                            notes = notesInput.ifBlank { null }
-                        )
+                        var weight = weightInput.toDoubleOrNull()
+                        var length = lengthInput.toDoubleOrNull()
 
-                        // Reset inputs and close
-                        notesInput = ""
-                        isErrorMsg = null
-                        showAddDialog = false
+                        // إذا كان كلاهما فارغاً أو غير صالح
+                        if ((weight == null || weight <= 0.0) && (length == null || length <= 0.0)) {
+                            isErrorMsg = "برجاء إدخال قياس واحد على الأقل (الوزن أو الطول) ليتم الحساب التلقائي."
+                            return@Button
+                        }
+
+                        // إذا أدخل الوزن فقط ولم يدخل الطول -> حساب الطول من الوزن
+                        if ((length == null || length <= 0.0) && (weight != null && weight > 0.0)) {
+                            length = FetalStandardData.estimateLengthFromWeight(selectedWeek, weight)
+                        }
+                        // إذا أدخل الطول فقط ولم يدخل الوزن -> حساب الوزن من الطول
+                        else if ((weight == null || weight <= 0.0) && (length != null && length > 0.0)) {
+                            weight = FetalStandardData.estimateWeightFromLength(selectedWeek, length)
+                        }
+
+                        if (weight != null && length != null) {
+                            viewModel.addFetalGrowthLog(
+                                week = selectedWeek,
+                                weightGrams = weight,
+                                lengthCm = length,
+                                notes = notesInput.ifBlank { null }
+                            )
+
+                            // Reset inputs and close
+                            notesInput = ""
+                            isErrorMsg = null
+                            showAddDialog = false
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
                     modifier = Modifier.testTag("confirm_add_growth_log")

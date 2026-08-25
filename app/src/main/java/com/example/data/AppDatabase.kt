@@ -68,7 +68,9 @@ val MIGRATION_15_16 = object : Migration(15, 16) {
         db.execSQL("DROP TABLE `pregnancy`")
         db.execSQL("ALTER TABLE `pregnancy_new` RENAME TO `pregnancy`")
 
-        // 2. Recreate fetal_growth_logs with pregnancyId foreign key
+        // 2. Recreate fetal_growth_logs with pregnancyId foreign key.
+        // Look up the pre-existing pregnancy.id dynamically (COALESCE to 1 if no row exists)
+        // rather than assuming id is always 1.
         db.execSQL(
             "CREATE TABLE IF NOT EXISTS `fetal_growth_logs_new` (" +
             "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
@@ -83,14 +85,27 @@ val MIGRATION_15_16 = object : Migration(15, 16) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_fetal_growth_logs_pregnancyId` ON `fetal_growth_logs_new` (`pregnancyId`)")
         db.execSQL(
             "INSERT INTO `fetal_growth_logs_new` (id, pregnancyId, date, pregnancyWeek, weightGrams, lengthCm, notes) " +
-            "SELECT id, 1, date, pregnancyWeek, weightGrams, lengthCm, notes FROM `fetal_growth_logs`"
+            "SELECT id, COALESCE((SELECT id FROM pregnancy ORDER BY id LIMIT 1), 1), date, pregnancyWeek, weightGrams, lengthCm, notes FROM `fetal_growth_logs`"
         )
         db.execSQL("DROP TABLE `fetal_growth_logs`")
         db.execSQL("ALTER TABLE `fetal_growth_logs_new` RENAME TO `fetal_growth_logs`")
     }
 }
 
-// Version 16 ships with explicit MIGRATION_15_16.
+val MIGRATION_16_17 = object : Migration(16, 17) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `contraceptive_methods` (" +
+            "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+            "`type` TEXT NOT NULL, " +
+            "`startDate` INTEGER NOT NULL, " +
+            "`endDate` INTEGER, " +
+            "`notes` TEXT)"
+        )
+    }
+}
+
+// Version 17 ships with explicit MIGRATION_16_17.
 @Database(
     entities = [
         PregnancyEntity::class,
@@ -115,9 +130,10 @@ val MIGRATION_15_16 = object : Migration(15, 16) {
         MaonatyInventoryItem::class,
         MaonatyShoppingItem::class,
         MaonatyHouseholdTask::class,
-        FetalGrowthLog::class
+        FetalGrowthLog::class,
+        ContraceptiveMethod::class
     ],
-    version = 16,
+    version = 17,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -128,7 +144,7 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
-        private fun getDatabasePassphrase(context: Context): ByteArray {
+        internal fun getDatabasePassphrase(context: Context): ByteArray {
             val masterKey = MasterKey.Builder(context)
                 .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
                 .build()
@@ -152,6 +168,15 @@ abstract class AppDatabase : RoomDatabase() {
             return Base64.decode(keyString, Base64.DEFAULT)
         }
 
+        fun closeDatabase() {
+            synchronized(this) {
+                if (INSTANCE?.isOpen == true) {
+                    INSTANCE?.close()
+                }
+                INSTANCE = null
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val passphrase = getDatabasePassphrase(context.applicationContext)
@@ -163,7 +188,7 @@ abstract class AppDatabase : RoomDatabase() {
                     "woman_companion_database"
                 )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_14_15, MIGRATION_15_16)
+                .addMigrations(MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
                 .build()
                 INSTANCE = instance
                 instance

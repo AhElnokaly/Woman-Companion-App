@@ -51,6 +51,20 @@ android {
       signingConfig = signingConfigs.getByName("debugConfig")
     }
   }
+
+  // Release builds produce Android App Bundle (.aab) via `gradle :app:bundleRelease`
+  // Output artifact path: app/build/outputs/bundle/release/app-release.aab
+  bundle {
+    language {
+      enableSplit = true
+    }
+    density {
+      enableSplit = true
+    }
+    abi {
+      enableSplit = true
+    }
+  }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
@@ -113,8 +127,8 @@ dependencies {
   implementation(libs.androidx.work.runtime.ktx)
   // implementation(libs.coil.compose)
   implementation(libs.converter.moshi)
-  implementation(libs.firebase.ai)
-  implementation(libs.firebase.appcheck.recaptcha)
+  // implementation(libs.firebase.ai)
+  // implementation(libs.firebase.appcheck.recaptcha)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.logging.interceptor)

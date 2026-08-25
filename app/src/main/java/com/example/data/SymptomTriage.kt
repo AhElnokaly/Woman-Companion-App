@@ -20,48 +20,57 @@ object SymptomTriage {
         isPregnant: Boolean
     ): SafetyAlert? {
         val normalized = EgyptianFoodRepository.normalizeText(input.trim().lowercase())
+
+        fun matchesAny(vararg phrases: String): Boolean {
+            return phrases.any { normalized.contains(EgyptianFoodRepository.normalizeText(it)) }
+        }
         
         if (isPregnant) {
             // 1. Bleeding / spotting during pregnancy
-            if (normalized.contains("نزيف") || normalized.contains("دم") || normalized.contains("نزف") || normalized.contains("بقع دم") || normalized.contains("ينزف")) {
+            if (matchesAny("نزيف", "دم", "نزف", "بقع دم", "ينزف")) {
                 return SafetyAlert(
-                    title = "🚨 تنبيه طبي عاجل: توجهي لطبيبتكِ الآن",
-                    message = "يا حبيبة قلبي، نزول دم أو حدوث نزيف أثناء الحمل يعتبر من العلامات الطبية التي تتطلب فحصاً فورياً بالسونار للاطمئنان على سلامة المشيمة والجنين. يرجى الاستلقاء فوراً والتوجه لأقرب مستشفى أو الاتصال بطبيبتكِ فوراً! 💕"
+                    title = "🚨 تنبيه طبي عاجل: توجهي لطبيبتكِ أو الطوارئ",
+                    message = "يا حبيبة قلبي، نزول دم أو حدوث نزيف أثناء الحمل يتطلب تقييماً طبياً عاجلاً وفورياً. يرجى التوقف عن أي مجهود والتوجه فوراً لأقرب مستشفى أو وحدة طوارئ نساء وولادة أو التواصل المباشر مع طبيبتكِ المعالجة. 💕"
                 )
             }
             // 2. Severe abdominal pain / cramps
-            if ((normalized.contains("الم شديد") || normalized.contains("ألم شديد") || normalized.contains("مغص حاد") || normalized.contains("وجع شديد")) && (normalized.contains("بطن") || normalized.contains("رحم"))) {
+            if (matchesAny("الم شديد", "ألم شديد", "مغص حاد", "وجع شديد") && matchesAny("بطن", "رحم")) {
                 return SafetyAlert(
                     title = "🚨 تنبيه طبي عاجل: استشيري طبيبتكِ فوراً",
-                    message = "يا غالية، الآلام الحادة والتقلصات الشديدة المستمرة في البطن أو أسفل الرحم تتطلب تقييماً طبياً مباشراً للاطمئنان على تماسك الرحم والمشيمة. يرجى التوقف عن أي مجهود والتواصل مع طبيبتكِ الآن! 🌸"
+                    message = "يا غالية، الآلام الحادة والتقلصات الشديدة المستمرة في البطن أو أسفل الرحم تتطلب تقييماً طبياً عاجلاً. يرجى التوقف التام عن أي مجهود والتواصل مع طبيبتكِ أو التوجه لأقرب مركز طوارئ للاطمئنان! 🌸"
                 )
             }
             // 3. High fever during pregnancy
-            if (normalized.contains("سخونية") || normalized.contains("حرارة عالية") || normalized.contains("حمى") || normalized.contains("حرارتي عاليه") || normalized.contains("سخونة")) {
+            if (matchesAny("سخونية", "حرارة عالية", "حمى", "حرارتي عاليه", "سخونة")) {
                 return SafetyAlert(
                     title = "🚨 تنبيه طبي عاجل: ارتفاع درجة الحرارة",
-                    message = "يا روحي، ارتفاع درجة حرارة الجسم أثناء الحمل فوق 38°م قد يؤثر على بيئة الجنين. يرجى استخدام كمادات دافئة (ليست باردة جداً) وتناول خافض حرارة آمن بحسب تعليمات طبيبتكِ والتوجه للطبيب للاطمئنان! 💕"
+                    message = "يا روحي، ارتفاع درجة حرارة الجسم أثناء الحمل يتطلب مراجعة طبية عاجلة لتحديد السبب وعلاجه بأمان. يرجى التواصل مع طبيبتكِ والتوجه للاستشارة الطبية فوراً. 💕"
                 )
             }
             // 4. Fluid leakage / waters broke
-            if (normalized.contains("نزول ماء") || normalized.contains("تسرب مياه") || normalized.contains("مية الجنين") || normalized.contains("ماء الجنين") || normalized.contains("نزول مية")) {
+            if (matchesAny("نزول ماء", "تسرب مياه", "مية الجنين", "ماء الجنين", "نزول مية")) {
                 return SafetyAlert(
                     title = "🚨 تنبيه طبي عاجل: تسرب السائل الأمنيوسي",
-                    message = "يا غالية، نزول أو تسرب السوائل بكثرة قد يكون إشارة لتمزق غشاء الجنين (مية الرأس). يرجى التوجه فوراً لغرفة الطوارئ أو التواصل المباشر مع طبيبتكِ! 🏥"
+                    message = "يا غالية، نزول أو تدفق السوائل المهبلية قد يشير لتمزق الأغشية المحيطة بالجنين (ماء الجنين). يرجى التوجه فوراً لوحدة طوارئ الولادة أو التواصل المباشر مع طبيبتكِ دون تأخير! 🏥"
                 )
             }
             // 5. Severe headache + vision changes / swelling (preeclampsia)
-            if ((normalized.contains("صداع شديد") || normalized.contains("صداع حاد")) && (normalized.contains("زغللة") || normalized.contains("عين") || normalized.contains("تورم") || normalized.contains("تنفخ"))) {
+            if (matchesAny("صداع شديد", "صداع حاد") && matchesAny("زغللة", "عين", "تورم", "تنفخ")) {
                 return SafetyAlert(
-                    title = "🚨 تنبيه طبي عاجل: علامات ارتفاع الضغط / تسمم الحمل",
-                    message = "يا حبيبة قلبي، الصداع الشديد المصحوب بزغللة أو تورم مفاجئ في الوجه واليدين قد يكون علامة على ارتفاع حاد في ضغط الدم (تسمم الحمل). قياس الضغط ومراجعة الطبيب فوراً أمر حيوي لسلامتكِ وجنينكِ! 🩺"
+                    title = "🚨 تنبيه طبي عاجل: علامات تتطلب تقييماً عاجلاً لضغط الدم",
+                    message = "يا حبيبة قلبي، الصداع الشديد المصحوب بزغللة في الرؤية أو تورم مفاجئ في الوجه واليدين يتطلب قياساً فورياً لضغط الدم وتقييماً طبياً عاجلاً من قِبل الفريق الطبي. توجهي لأقرب مستشفى أو مركز رعاية عاجل! 🩺"
                 )
             }
-            // 6. Decreased fetal movement
-            if (normalized.contains("حركة الجنين") && (normalized.contains("قلت") || normalized.contains("ضعفت") || normalized.contains("توقفت") || normalized.contains("ما بيتحركش") || normalized.contains("مش بيتحرك"))) {
+            // 6. Decreased or absent fetal movement - URGENT safety triage
+            val hasFetalSubject = matchesAny("حركة الجنين", "حركة البيبي", "حركة طفلي", "حركة جنيني")
+            val hasReducedQualifier = matchesAny("قلت", "ضعفت", "توقفت", "ما بيتحركش", "مش بيتحرك", "قليلة", "نقصت", "بطيئة", "عدم حركة", "واقفة")
+            val hasDirectPhrase = matchesAny("الجنين ما بيتحرك", "الجنين مش بيتحرك", "البيبي ما بيتحرك", "البيبي مش بيتحرك")
+
+            if ((hasFetalSubject && hasReducedQualifier) || hasDirectPhrase) {
                 return SafetyAlert(
-                    title = "🚨 تنبيه طبي عاجل: متابعة حركة الجنين",
-                    message = "يا روحي، انخفاض حركة الجنين بشكل مفاجئ يتطلب الاستلقاء على الجانب الأيسر، تناول عصير طبيعي دافئ أو قطعة شيكولاتة، ومراقبة الحركة لمدة ساعة. إذا لم تشعري بـ 10 حركات، يرجى إجراء تخطيط لقلب الجنين (CTG) فوراً! 👶"
+                    title = "🚨 تنبيه طبي عاجل: انخفاض أو تغير حركة الجنين",
+                    message = "يا غالية، ملاحظة أي انخفاض أو تغير ملحوظ في نمط حركة جنينكِ هو أمر عاجل يتطلب التواصل الفوري مع طبيبتكِ المعالجة أو التوجه المباشر لوحدة طوارئ الولادة للاطمئنان على سلامة الجنين ونبضه دون تأخير. يرجى دائماً اتباع تعليمات طبيبتكِ الخاصة بحساب ومتابعة حركات الجنين وتوجيهاتها الطبية. 🏥👶",
+                    urgencyLevel = UrgencyLevel.CRITICAL
                 )
             }
         }

@@ -2,6 +2,7 @@ package com.example.data
 
 import android.content.Context
 import android.util.Log
+import com.example.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -34,11 +35,14 @@ object GeminiService {
     ): String = withContext(Dispatchers.IO) {
         // Read key, base URL, and model dynamically from DataStore Preferences on every invocation!
         var apiKey = apiKeyRepository?.getKey() ?: ""
-        val rawBaseUrl = apiKeyRepository?.getBaseUrl() ?: "https://generativelanguage.googleapis.com/"
+        if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
+            apiKey = BuildConfig.GEMINI_API_KEY
+        }
+        val rawBaseUrl = apiKeyRepository?.getBaseUrl() ?: ApiKeyRepository.DEFAULT_BASE_URL
         val modelName = apiKeyRepository?.getModelName() ?: "gemini-3.5-flash"
         
-        // Ensure trailing slash
-        val baseUrl = if (rawBaseUrl.endsWith("/")) rawBaseUrl else "$rawBaseUrl/"
+        // Ensure valid allowed host and trailing slash
+        val baseUrl = ApiKeyRepository.sanitizeBaseUrl(rawBaseUrl)
 
         val defaultPhase = com.example.viewmodel.CyclePhaseInfo("Follicular", "الطور الجريبي 🌸", 5, 0.5f, "")
 
@@ -150,14 +154,18 @@ object GeminiService {
     }
 
     suspend fun testApiKey(key: String, customBaseUrl: String? = null, customModel: String? = null): Pair<Boolean, String> = withContext(Dispatchers.IO) {
-        if (key.isBlank()) {
+        val targetKey = if (key.isNotBlank() && key != "MY_GEMINI_API_KEY") key else {
+            val saved = apiKeyRepository?.getKey()
+            if (!saved.isNullOrBlank() && saved != "MY_GEMINI_API_KEY") saved else BuildConfig.GEMINI_API_KEY
+        }
+        if (targetKey.isBlank() || targetKey == "MY_GEMINI_API_KEY") {
             return@withContext Pair(false, "مفتاح الـ API فارغ.")
         }
-        val rawBaseUrl = customBaseUrl ?: apiKeyRepository?.getBaseUrl() ?: "https://generativelanguage.googleapis.com/"
+        val rawBaseUrl = customBaseUrl ?: apiKeyRepository?.getBaseUrl() ?: ApiKeyRepository.DEFAULT_BASE_URL
         val modelName = customModel ?: apiKeyRepository?.getModelName() ?: "gemini-3.5-flash"
-        val baseUrl = if (rawBaseUrl.endsWith("/")) rawBaseUrl else "$rawBaseUrl/"
+        val baseUrl = ApiKeyRepository.sanitizeBaseUrl(rawBaseUrl)
         
-        val url = "${baseUrl}v1beta/models/$modelName:generateContent?key=$key"
+        val url = "${baseUrl}v1beta/models/$modelName:generateContent?key=$targetKey"
         val mediaType = "application/json; charset=utf-8".toMediaType()
         try {
             val root = JSONObject()

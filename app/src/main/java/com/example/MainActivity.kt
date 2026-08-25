@@ -5,6 +5,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -41,7 +42,9 @@ import com.example.ui.theme.MyApplicationTheme
 import com.example.viewmodel.WomanCompanionViewModel
 import com.example.viewmodel.WomanCompanionViewModelFactory
 
+import android.content.Context
 import android.content.Intent
+import androidx.compose.ui.platform.LocalContext
 import androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions
 
 import com.example.R
@@ -87,7 +90,7 @@ class MainActivity : ComponentActivity() {
             val viewModel = ViewModelProvider(this, factory)[WomanCompanionViewModel::class.java]
             viewModel.reinitializeSensors()
         } catch (e: Exception) {
-            e.printStackTrace()
+            com.example.util.AppLogger.w("MainActivity", "Failed to reinitialize sensors on resume", e)
         }
     }
 
@@ -100,7 +103,7 @@ class MainActivity : ComponentActivity() {
                 startService(serviceIntent)
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            com.example.util.AppLogger.e("MainActivity", "Failed to start StepCounterService", e)
         }
     }
 
@@ -133,6 +136,7 @@ class MainActivity : ComponentActivity() {
         com.example.data.GeminiService.init(applicationContext)
         ReminderScheduler.rescheduleAllReminders(applicationContext)
         MedicationMonitorWorker.enqueuePeriodicWork(applicationContext)
+        com.example.worker.WeeklyDigestWorker.enqueuePeriodicWork(applicationContext)
         val repository = WomanCompanionRepository(database.womanCompanionDao())
         val factory = WomanCompanionViewModelFactory(application, repository)
         val viewModel = ViewModelProvider(this, factory)[WomanCompanionViewModel::class.java]
@@ -171,7 +175,17 @@ class MainActivity : ComponentActivity() {
                 val companionName = settings?.companionName ?: "جوري"
                 
                 val isExactAlarmDenied by isExactAlarmDeniedState
+                val mainContext = LocalContext.current
+                var exactAlarmDismissedUntil by remember {
+                    mutableStateOf(
+                        mainContext.getSharedPreferences("woman_companion_prefs", Context.MODE_PRIVATE)
+                            .getLong("exact_alarm_dismissed_until", 0L)
+                    )
+                }
                 var isExactAlarmPromptDismissed by remember { mutableStateOf(false) }
+                val isExactAlarmSuppressed = remember(exactAlarmDismissedUntil) {
+                    System.currentTimeMillis() < exactAlarmDismissedUntil
+                }
 
                 val tabsList = listOf("dashboard", "period", "nutrition", "symptoms", "tools")
                 val pagerState = rememberPagerState(
@@ -193,6 +207,20 @@ class MainActivity : ComponentActivity() {
                 } else {
                     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                         val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+
+                        BackHandler(enabled = drawerState.isOpen || showJouriChat || showNotificationsDialog || isViewingSettings || pagerState.currentPage != 0) {
+                            if (drawerState.isOpen) {
+                                coroutineScope.launch { drawerState.close() }
+                            } else if (showJouriChat) {
+                                showJouriChat = false
+                            } else if (showNotificationsDialog) {
+                                showNotificationsDialog = false
+                            } else if (isViewingSettings) {
+                                isViewingSettings = false
+                            } else if (pagerState.currentPage != 0) {
+                                coroutineScope.launch { pagerState.animateScrollToPage(0) }
+                            }
+                        }
                         
                         ModalNavigationDrawer(
                             drawerState = drawerState,
@@ -538,7 +566,7 @@ class MainActivity : ComponentActivity() {
                                                     2 -> "الغذاء والمياه الصحّية 🥑"
                                                     3 -> "الأعراض والروتين الطبي 🩺"
                                                     4 -> "الأدوات الذكية المساعدة 🛠️"
-                                                    else -> "رفيق المرأة"
+                                                    else -> "جوري"
                                                 },
                                                 style = MaterialTheme.typography.titleMedium.copy(
                                                     fontWeight = FontWeight.Bold,
@@ -722,7 +750,7 @@ class MainActivity : ComponentActivity() {
                                         .background(SoftTheme.BackgroundBrush)
                                         .padding(innerPadding)
                                 ) {
-                                    if (isExactAlarmDenied && !isExactAlarmPromptDismissed) {
+                                    if (isExactAlarmDenied && !isExactAlarmPromptDismissed && !isExactAlarmSuppressed) {
                                         Card(
                                             colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color(0xFF822727)),
                                             shape = RoundedCornerShape(12.dp),
@@ -772,8 +800,30 @@ class MainActivity : ComponentActivity() {
                                                 ) {
                                                     Text(stringResource(R.string.exact_alarm_permission_button), color = androidx.compose.ui.graphics.Color(0xFF822727), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                                 }
+                                                TextButton(
+                                                    onClick = {
+                                                        isExactAlarmPromptDismissed = true
+                                                        val snoozeTime = System.currentTimeMillis() + (3L * 24 * 60 * 60 * 1000)
+                                                        mainContext.getSharedPreferences("woman_companion_prefs", Context.MODE_PRIVATE)
+                                                            .edit()
+                                                            .putLong("exact_alarm_dismissed_until", snoozeTime)
+                                                            .apply()
+                                                        exactAlarmDismissedUntil = snoozeTime
+                                                    },
+                                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                                                ) {
+                                                    Text("تذكرني بعدين", color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.9f), fontSize = 10.sp)
+                                                }
                                                 IconButton(
-                                                    onClick = { isExactAlarmPromptDismissed = true },
+                                                    onClick = {
+                                                        isExactAlarmPromptDismissed = true
+                                                        val snoozeTime = System.currentTimeMillis() + (3L * 24 * 60 * 60 * 1000)
+                                                        mainContext.getSharedPreferences("woman_companion_prefs", Context.MODE_PRIVATE)
+                                                            .edit()
+                                                            .putLong("exact_alarm_dismissed_until", snoozeTime)
+                                                            .apply()
+                                                        exactAlarmDismissedUntil = snoozeTime
+                                                    },
                                                     modifier = Modifier.size(24.dp)
                                                 ) {
                                                     Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close_action), tint = androidx.compose.ui.graphics.Color.White)

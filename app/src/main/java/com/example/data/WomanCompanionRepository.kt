@@ -39,6 +39,11 @@ class WomanCompanionRepository(private val dao: WomanCompanionDao) {
     suspend fun insertMedication(medication: MedicationLog): Long = dao.insertMedication(medication)
     suspend fun deleteMedication(medication: MedicationLog) = dao.deleteMedication(medication)
 
+    // --- Medication Adherence Logs ---
+    val allMedicationAdherenceLogsFlow: Flow<List<MedicationAdherenceLog>> = dao.getAllMedicationAdherenceLogsFlow()
+    suspend fun insertMedicationAdherenceLog(log: MedicationAdherenceLog) = dao.insertMedicationAdherenceLog(log)
+    suspend fun deleteMedicationAdherenceLog(log: MedicationAdherenceLog) = dao.deleteMedicationAdherenceLog(log)
+
     // --- Symptoms ---
     val allSymptomLogsFlow: Flow<List<SymptomLog>> = dao.getAllSymptomLogsFlow()
     suspend fun insertSymptomLog(log: SymptomLog) = dao.insertSymptomLog(log)
@@ -132,6 +137,13 @@ class WomanCompanionRepository(private val dao: WomanCompanionDao) {
     suspend fun insertFetalGrowthLog(log: FetalGrowthLog) = dao.insertFetalGrowthLog(log)
     suspend fun deleteFetalGrowthLog(log: FetalGrowthLog) = dao.deleteFetalGrowthLog(log)
     suspend fun clearFetalGrowthLogs() = dao.clearFetalGrowthLogs()
+
+    // --- وسيلة منع الحمل (Contraceptive Methods) ---
+    val allContraceptiveMethods: Flow<List<ContraceptiveMethod>> = dao.getAllContraceptiveMethodsFlow()
+    val activeContraceptiveMethod: Flow<ContraceptiveMethod?> = dao.getActiveContraceptiveMethodFlow()
+    suspend fun insertContraceptiveMethod(method: ContraceptiveMethod) = dao.insertContraceptiveMethod(method)
+    suspend fun updateContraceptiveMethod(method: ContraceptiveMethod) = dao.updateContraceptiveMethod(method)
+    suspend fun deleteContraceptiveMethod(method: ContraceptiveMethod) = dao.deleteContraceptiveMethod(method)
 
     // --- Factory Reset ---
     suspend fun factoryReset() {

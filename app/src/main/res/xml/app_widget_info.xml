@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp"
+    android:minHeight="140dp"
+    android:updatePeriodMillis="1800000"
+    android:previewImage="@drawable/app_showcase_split_1783590277277"
+    android:initialLayout="@layout/app_widget_woman_companion"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen">
+</appwidget-provider>

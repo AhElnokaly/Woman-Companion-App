@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">رفيق المرأة</string>
+    <string name="app_name">جوري</string>
     <string name="exact_alarm_permission_title">تنبيه التذكيرات الدقيقة ⏰</string>
     <string name="exact_alarm_permission_desc">عشان جوري تقدر تفكّرك بمواعيد دوائك، محتاجين إذن التنبيهات الدقيقة.</string>
     <string name="exact_alarm_permission_button">تفعيل الإذن</string>

@@ -32,5 +32,5 @@ class GreetingScreenshotTest {
 
 @Composable
 fun Greeting(name: String, modifier: Modifier = Modifier) {
-  Text(text = "رفيق المرأة - Hello $name!", modifier = modifier)
+  Text(text = "جوري - Hello $name!", modifier = modifier)
 }

@@ -23,11 +23,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.R
 import com.example.viewmodel.WomanCompanionViewModel
 import java.util.*
 
@@ -413,6 +416,58 @@ fun StepPersonalInfo(
                 lineHeight = 22.sp
             )
 
+            // Showcase Hero Visual Card for Jouri
+            Card(
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = SoftTheme.DeepSlate.copy(alpha = 0.6f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(140.dp)
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Image(
+                        painter = painterResource(id = R.drawable.jouri_showcase_1783592034174),
+                        contentDescription = "جوري رفيقتكِ الذكية",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        Color.Black.copy(alpha = 0.75f)
+                                    )
+                                )
+                            )
+                    )
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("🌸", fontSize = 20.sp)
+                        Column {
+                            Text(
+                                text = "مرحباً بكِ، أنا جوري 🌸",
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                fontSize = 15.sp
+                            )
+                            Text(
+                                text = "رفيقتكِ الذكية لمتابعة صحتكِ ونمط حياتكِ بأمان وخصوصية",
+                                color = SoftTheme.LightPink,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+            }
+
             Divider(color = Color(0xFF2196F3).copy(alpha = 0.25f), thickness = 1.dp)
 
             // Full Name Input
@@ -797,6 +852,58 @@ fun StepCyclePregnancy(
                 lineHeight = 22.sp
             )
 
+            // Dual Mode Split Showcase Card
+            Card(
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = SoftTheme.DeepSlate.copy(alpha = 0.6f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(140.dp)
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Image(
+                        painter = painterResource(id = R.drawable.app_showcase_split_1783590277277),
+                        contentDescription = "استعراض وضعي الدورة والحمل",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        Color.Black.copy(alpha = 0.75f)
+                                    )
+                                )
+                            )
+                    )
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("✨", fontSize = 18.sp)
+                        Column {
+                            Text(
+                                text = "تطبيق واحد.. لرحلتين متكاملتين",
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                fontSize = 15.sp
+                            )
+                            Text(
+                                text = "تتبع ذكي للدورة والخصوبة 🩸 أو رحلة حمل مباركة 🤰",
+                                color = SoftTheme.MintTeal,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+            }
+
             Divider(color = Color(0xFF00C0A5).copy(alpha = 0.25f), thickness = 1.dp)
 
             // Pregnancy Toggle Switch
@@ -1092,6 +1199,9 @@ fun StepSummaryAndSave(
                     }
                 }
             }
+
+            // Battery Optimization Exemption Card (Optional recommendation during onboarding)
+            BatteryOptimizationCard()
 
             Spacer(modifier = Modifier.height(12.dp))
 

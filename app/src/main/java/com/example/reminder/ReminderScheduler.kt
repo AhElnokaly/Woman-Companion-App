@@ -116,7 +116,7 @@ object ReminderScheduler {
         if (!med.isActive) return
         val now = System.currentTimeMillis()
         val baseTime = med.startDate ?: now
-        val count = if (med.timesPerDay > 0) med.timesPerDay else 1
+        val count = med.timesPerDay.coerceIn(1, 20)
 
         if (count == 1) {
             var trigger = if (baseTime > now) baseTime else baseTime + 24 * 3600 * 1000L
@@ -163,18 +163,82 @@ object ReminderScheduler {
     fun scheduleAppointmentReminder(context: Context, appt: Appointment) {
         val now = System.currentTimeMillis()
         if (appt.completed || appt.dateTime <= now) return
+
+        val docName = appt.doctorName?.let { "مع د. $it" } ?: ""
+
+        // 1. تذكير في نفس اللحظة (موعد الزيارة الآن)
         scheduleReminder(
             context = context,
-            id = 10000 + appt.id,
+            id = 10000 + appt.id * 10,
             triggerTimeMillis = appt.dateTime,
-            title = "تذكير بموعد طبي: ${appt.title}",
-            body = "الطبيب: ${appt.doctorName ?: "غير محدد"}",
+            title = "حان موعد زيارة الطبيبة الآن 🏥: ${appt.title}",
+            body = "تمنياتنا لكِ بكشف مريح ومطمئن $docName 🌸",
             recurrence = RecurrenceType.NONE
         )
+
+        // 2. تذكير مبكر قبل ساعتين (2 Hours Before)
+        val twoHoursBefore = appt.dateTime - (2 * 3600 * 1000L)
+        if (twoHoursBefore > now) {
+            scheduleReminder(
+                context = context,
+                id = 10000 + appt.id * 10 + 1,
+                triggerTimeMillis = twoHoursBefore,
+                title = "تذكير: موعد الطبيبة بعد ساعتين ⏰",
+                body = "تجهزي لزيارة ${appt.title} $docName، ولا تنسي ملفك الطبي وفحوصاتك السابقة 💕",
+                recurrence = RecurrenceType.NONE
+            )
+        }
+
+        // 3. تذكير استباقي قبل يوم كامل (24 Hours Before)
+        val oneDayBefore = appt.dateTime - (24 * 3600 * 1000L)
+        if (oneDayBefore > now) {
+            scheduleReminder(
+                context = context,
+                id = 10000 + appt.id * 10 + 2,
+                triggerTimeMillis = oneDayBefore,
+                title = "تذكير غداً: موعد كشف الطبيبة 🌸🗓️",
+                body = "لديكِ غداً موعد: ${appt.title} $docName. جهزي أسئلتكِ واستمتعي برؤية طفلكِ غداً ✨",
+                recurrence = RecurrenceType.NONE
+            )
+        }
     }
 
     fun cancelAppointmentReminder(context: Context, apptId: Int) {
+        // إلغاء التنبيه القديم ذو المعرف المباشر
         cancelReminder(context, 10000 + apptId)
+        // إلغاء باقة التنبيهات المحدثة (في الموعد، قبل ساعتين، قبل يوم)
+        cancelReminder(context, 10000 + apptId * 10)
+        cancelReminder(context, 10000 + apptId * 10 + 1)
+        cancelReminder(context, 10000 + apptId * 10 + 2)
+    }
+
+    // 💧 جدول تذكيرات شرب الماء الذكية النهارية (بين 8:00 صباحاً و 10:00 مساءً كل ساعتين)
+    fun scheduleDaytimeWaterReminders(context: Context, isEnabled: Boolean) {
+        val waterHours = listOf(8, 10, 12, 14, 16, 18, 20, 22)
+        waterHours.forEachIndexed { index, hour ->
+            val reminderId = 50000 + index
+            if (!isEnabled) {
+                cancelReminder(context, reminderId)
+            } else {
+                val cal = java.util.Calendar.getInstance().apply {
+                    set(java.util.Calendar.HOUR_OF_DAY, hour)
+                    set(java.util.Calendar.MINUTE, 0)
+                    set(java.util.Calendar.SECOND, 0)
+                    set(java.util.Calendar.MILLISECOND, 0)
+                    if (timeInMillis <= System.currentTimeMillis()) {
+                        add(java.util.Calendar.DAY_OF_YEAR, 1)
+                    }
+                }
+                scheduleReminder(
+                    context = context,
+                    id = reminderId,
+                    triggerTimeMillis = cal.timeInMillis,
+                    title = "حان وقت شرب كوب ماء 💧🥛",
+                    body = "رطبي جسمكِ وحافظي على حيوية بشرتكِ وتدفق السائل الأمنيوسي لصحة جنينكِ 🌸",
+                    recurrence = RecurrenceType.DAILY
+                )
+            }
+        }
     }
 
     fun rescheduleAllReminders(context: Context) {
@@ -316,14 +380,25 @@ class ReminderReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val openIntent = Intent(context, com.example.MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val openPendingIntent = PendingIntent.getActivity(
+            context,
+            id * 10,
+            openIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val builder = NotificationCompat.Builder(context, ReminderScheduler.CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(title)
             .setContentText(body)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(openPendingIntent)
             .setAutoCancel(true)
-            .addAction(0, "تم الأخذ", takenPendingIntent)
-            .addAction(0, "تأجيل 15 دقيقة", snoozePendingIntent)
+            .addAction(0, "✅ تم الأخذ", takenPendingIntent)
+            .addAction(0, "⏰ غفوة 15 دقيقة", snoozePendingIntent)
 
         notificationManager.notify(id, builder.build())
     }

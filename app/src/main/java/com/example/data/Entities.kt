@@ -314,12 +314,36 @@ data class MaonatyHouseholdTask(
 )
 data class FetalGrowthLog(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val pregnancyId: Int = 1,
+    val pregnancyId: Int,
     val date: Long = System.currentTimeMillis(),
     val pregnancyWeek: Int,              // أسبوع الحمل (مثلاً من 4 إلى 42)
     val weightGrams: Double,             // الوزن المدخل بالجرام (مثلاً 350.0 جرام)
     val lengthCm: Double,                // الطول المدخل بالسم (مثلاً 15.2 سم)
     val notes: String? = null            // ملاحظات أو تفاصيل زيارة الطبيب
+)
+
+// --- نمط إشعار تباين الدورة الشهرية (Cycle Irregularity Pattern Notice) ---
+data class IrregularityNotice(
+    val id: String,
+    val title: String,
+    val message: String
+)
+
+// --- الكيان الجديد: تتبع وسيلة منع الحمل (Contraceptive Method) ---
+@Entity(tableName = "contraceptive_methods")
+data class ContraceptiveMethod(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val type: String,                  // PILL, HORMONAL_IUD, COPPER_IUD, INJECTION, IMPLANT, CONDOM, OTHER
+    val startDate: Long,               // تاريخ بدء استخدام الوسيلة
+    val endDate: Long? = null,         // تاريخ التوقف عن الوسيلة (null = نشطة حالياً)
+    val notes: String? = null          // ملاحظات إضافية
+)
+
+data class ContraceptiveSymptomContext(
+    val methodType: String,
+    val methodTypeName: String,
+    val daysSinceStart: Long,
+    val formattedLabel: String
 )
 
 

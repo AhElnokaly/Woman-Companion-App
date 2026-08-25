@@ -2268,6 +2268,7 @@ data class TrimesterNutrientTarget(
     val targetProteinG: Double // 75.0 g
 )
 
+// AHMED-REVIEW: Pregnancy nutrition standard targets (calories, sodium limit, iron, folic acid) require clinical verification
 object PregnancyNutritionReference {
     val trimesterTargets = mapOf(
         1 to TrimesterNutrientTarget(
@@ -2303,6 +2304,6 @@ object PregnancyNutritionReference {
     )
 
     fun getTargetForTrimester(trimester: Int): TrimesterNutrientTarget {
-        return trimesterTargets[trimester.coerceIn(1, 3)] ?: trimesterTargets[1]!!
+        return trimesterTargets[trimester.coerceIn(1, 3)] ?: trimesterTargets.values.first()
     }
 }

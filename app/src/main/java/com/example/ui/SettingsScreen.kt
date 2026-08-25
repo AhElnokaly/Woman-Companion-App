@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -22,16 +23,23 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.viewmodel.WomanCompanionViewModel
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.example.util.BackupManager
+import android.widget.Toast
+import java.io.File
+import com.example.viewmodel.*
 
 @Composable
 fun AppLockScreen(
@@ -62,7 +70,7 @@ fun AppLockScreen(
                 )
 
                 Text(
-                    text = "رفيق المرأة 🌸",
+                    text = "جوري 🌸",
                     style = MaterialTheme.typography.headlineMedium,
                     color = SoftTheme.TextWhite,
                     fontWeight = FontWeight.Bold
@@ -183,6 +191,8 @@ fun SettingsScreen(
     val savedApiKey by viewModel.apiKeyFlow.collectAsStateWithLifecycle(initialValue = null)
     val savedBaseUrl by viewModel.apiBaseUrlFlow.collectAsStateWithLifecycle(initialValue = "https://generativelanguage.googleapis.com/")
     val savedModelName by viewModel.modelNameFlow.collectAsStateWithLifecycle(initialValue = "gemini-3.5-flash")
+    val nifasDurationDays by viewModel.nifasDurationDaysState.collectAsStateWithLifecycle()
+    val showPastPregnancyMemories by viewModel.showPastPregnancyMemoriesState.collectAsStateWithLifecycle()
 
     var pinCodeInput by remember { mutableStateOf("") }
     var isLockEnabled by remember { mutableStateOf(false) }
@@ -507,37 +517,471 @@ fun SettingsScreen(
                 }
             }
 
-            // Export & Backup Data Card
+            // Pregnancy History Sub-Screen Card
             Card(
                 colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
                 shape = RoundedCornerShape(20.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("تصدير واستعادة النسخ الاحتياطية 📦", fontWeight = FontWeight.Bold, color = SoftTheme.SoftPink)
-                    Text("يمكنك طباعة أو حفظ ملخص طبي كامل ببياناتك وسجلاتك أو نسخها للاسترجاع.", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
+                    Text("سجل الأحمال والولادات السابقة 📜", fontWeight = FontWeight.Bold, color = SoftTheme.PregnancyPurple)
+                    Text("عرض وتصفح السجل التراكمي الشامل لجميع الأحمال السابقة والولادات ومتابعة النمو.", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
 
                     Button(
                         onClick = {
-                            val backupJson = viewModel.exportMaonatyBackup()
-                            try {
-                                val sendIntent = android.content.Intent().apply {
-                                    action = android.content.Intent.ACTION_SEND
-                                    putExtra(android.content.Intent.EXTRA_TEXT, backupJson)
-                                    type = "text/plain"
-                                }
-                                context.startActivity(android.content.Intent.createChooser(sendIntent, "تصدير النسخة الاحتياطية"))
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            }
+                            viewModel.setActiveSubScreen("pregnancy_history")
+                            onNavigateBack()
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
-                        modifier = Modifier.fillMaxWidth()
+                        colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.PregnancyPurple),
+                        modifier = Modifier.fillMaxWidth().testTag("view_pregnancy_history_btn")
                     ) {
-                        Text("تصدير النسخة الاحتياطية (JSON) 📤")
+                        Text("فتح سجل الأحمال والولادات 🤰", color = androidx.compose.ui.graphics.Color.White, fontWeight = FontWeight.Bold)
                     }
                 }
             }
+
+            // Past Pregnancy Memories Setting Card
+            Card(
+                colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text("ذكريات الحمل السابقة 🌸", fontWeight = FontWeight.Bold, color = SoftTheme.PregnancyPurple)
+                        Text(
+                            "عرض بطاقات التذكر التلقائية للأحمال السابقة في مثل هذا الوقت من السنة.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SoftTheme.SoftGray
+                        )
+                    }
+                    Switch(
+                        checked = showPastPregnancyMemories,
+                        onCheckedChange = { viewModel.setShowPastPregnancyMemories(it) },
+                        modifier = Modifier.testTag("toggle_past_pregnancy_memories_switch")
+                    )
+                }
+            }
+
+            // Nifas Duration Setting Card
+            var nifasInput by remember(nifasDurationDays) { mutableStateOf(nifasDurationDays.toString()) }
+            Card(
+                colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("إعدادات فترة النفاس (بعد الولادة) 👶", fontWeight = FontWeight.Bold, color = SoftTheme.NifasRose)
+                    Text("تحديد عدد أيام فترة النفاس المحسوبة تلقائياً في التقويم الذكي بعد كل ولادة (الافتراضي 40 يوماً).", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
+
+                    OutlinedTextField(
+                        value = nifasInput,
+                        onValueChange = { input ->
+                            nifasInput = input
+                            input.toIntOrNull()?.let { days ->
+                                if (days in 1..120) {
+                                    viewModel.setNifasDurationDays(days)
+                                }
+                            }
+                        },
+                        label = { Text("عدد أيام النفاس") },
+                        modifier = Modifier.fillMaxWidth().testTag("nifas_duration_input"),
+                        singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                    )
+                }
+            }
+
+            // Doctor Visit Summary Report Card
+            var showDoctorReportDialog by remember { mutableStateOf(false) }
+            var reportDaysRange by remember { mutableStateOf(30) }
+            var reportTextState by remember { mutableStateOf("") }
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier.fillMaxWidth().testTag("doctor_report_card")
+            ) {
+                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("تقرير زيارة الطبيبة 🩺", fontWeight = FontWeight.Bold, color = SoftTheme.MintTeal)
+                            Text(
+                                "ملخص طبي متكامل وسجلات الدورة/الحمل والقياسات والأدوية بصيغة PDF لمشاركتها مع طبيبتكِ.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = SoftTheme.SoftGray
+                            )
+                        }
+                    }
+                    Button(
+                        onClick = {
+                            reportTextState = viewModel.generateDoctorReportText(reportDaysRange)
+                            showDoctorReportDialog = true
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.MintTeal),
+                        modifier = Modifier.fillMaxWidth().testTag("generate_doctor_report_btn")
+                    ) {
+                        Text("إنشاء التقرير الطبي 🩺", color = androidx.compose.ui.graphics.Color.Black, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            if (showDoctorReportDialog) {
+                val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+                AlertDialog(
+                    onDismissRequest = { showDoctorReportDialog = false },
+                    title = { Text("🩺 تقرير زيارة الطبيبة", fontWeight = FontWeight.Bold, color = SoftTheme.MintTeal) },
+                    text = {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("اختر النطاق الزمني للتقرير:", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                listOf(30 to "آخر 30 يوم", 60 to "آخر 60 يوم", 180 to "آخر 6 أشهر").forEach { (days, label) ->
+                                    FilterChip(
+                                        selected = reportDaysRange == days,
+                                        onClick = {
+                                            reportDaysRange = days
+                                            reportTextState = viewModel.generateDoctorReportText(days)
+                                        },
+                                        label = { Text(label, fontSize = 11.sp) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = SoftTheme.MintTeal,
+                                            selectedLabelColor = androidx.compose.ui.graphics.Color.Black,
+                                            containerColor = SoftTheme.DeepSlate,
+                                            labelColor = SoftTheme.TextWhite
+                                        )
+                                    )
+                                }
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 240.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(SoftTheme.CardSlate)
+                                    .verticalScroll(rememberScrollState())
+                                    .padding(12.dp)
+                            ) {
+                                Text(
+                                    reportTextState,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = SoftTheme.TextWhite,
+                                    lineHeight = 18.sp
+                                )
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = {
+                                    com.example.util.PdfReportGenerator.generateAndSharePdf(context, reportTextState)
+                                    showDoctorReportDialog = false
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.MintTeal),
+                                modifier = Modifier.testTag("export_pdf_report_btn")
+                            ) {
+                                Text("تصدير PDF 📄", color = androidx.compose.ui.graphics.Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(reportTextState))
+                                    Toast.makeText(context, "تم نسخ التقرير الطبي للنص! 📋", Toast.LENGTH_SHORT).show()
+                                    showDoctorReportDialog = false
+                                },
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = SoftTheme.MintTeal),
+                                modifier = Modifier.testTag("copy_text_report_btn")
+                            ) {
+                                Text("نسخ النص 📋", fontSize = 12.sp)
+                            }
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDoctorReportDialog = false }) {
+                            Text("إغلاق", color = SoftTheme.SoftGray)
+                        }
+                    },
+                    containerColor = SoftTheme.DeepSlate
+                )
+            }
+
+            // Battery Optimization Exemption Card
+            BatteryOptimizationCard()
+
+            // Gentle Achievements Card
+            GentleAchievementsCard(viewModel = viewModel)
+
+            // Export & Backup Data Card (Encrypted SQLCipher DB SAF Export/Import with User Passphrase)
+            var pendingImportFile by remember { mutableStateOf<File?>(null) }
+            var importErrorMessage by remember { mutableStateOf<String?>(null) }
+            var showConfirmImportDialog by remember { mutableStateOf(false) }
+
+            var showExportPasswordDialog by remember { mutableStateOf(false) }
+            var exportPasswordInput by remember { mutableStateOf("") }
+            var pendingExportPassword by remember { mutableStateOf("") }
+
+            var showImportPasswordDialog by remember { mutableStateOf(false) }
+            var pendingImportUri by remember { mutableStateOf<Uri?>(null) }
+            var importPasswordInput by remember { mutableStateOf("") }
+
+            val exportLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.CreateDocument("application/octet-stream")
+            ) { uri ->
+                if (uri != null && pendingExportPassword.isNotBlank()) {
+                    val success = BackupManager.exportEncryptedBackup(context, uri, pendingExportPassword)
+                    pendingExportPassword = ""
+                    if (success) {
+                        viewModel.markBackupExported()
+                        Toast.makeText(context, "تم تصدير النسخة الاحتياطية المشفرة بنجاح! 🔒📦", Toast.LENGTH_LONG).show()
+                    } else {
+                        Toast.makeText(context, "فشل تصدير النسخة الاحتياطية.", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+
+            val importLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.OpenDocument()
+            ) { uri ->
+                if (uri != null) {
+                    pendingImportUri = uri
+                    importPasswordInput = ""
+                    showImportPasswordDialog = true
+                }
+            }
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("تصدير واستعادة النسخ الاحتياطية المشفرة 🔒📦", fontWeight = FontWeight.Bold, color = SoftTheme.SoftPink)
+                    Text("بياناتك مجهزة بنسخة احتياطية مشفرة بكلمة سر من اختياركِ. يمكنك حفظها على Google Drive أو وحدة التخزين واعادة استعادتها بكامل بياناتها في أي وقت وعلى أي جهاز آخر.", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
+
+                    importErrorMessage?.let { errorMsg ->
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color(0xFF822727)),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = errorMsg,
+                                color = androidx.compose.ui.graphics.Color.White,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(10.dp)
+                            )
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                exportPasswordInput = ""
+                                showExportPasswordDialog = true
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
+                            modifier = Modifier.weight(1f).testTag("export_backup_btn")
+                        ) {
+                            Text("تصدير مشفر 🔒📤", fontSize = 13.sp)
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                importLauncher.launch(arrayOf("*/*", "application/octet-stream"))
+                            },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = SoftTheme.MintTeal),
+                            border = BorderStroke(1.dp, SoftTheme.MintTeal),
+                            modifier = Modifier.weight(1f).testTag("import_backup_btn")
+                        ) {
+                            Text("استعادة مشفرة 📥", fontSize = 13.sp)
+                        }
+                    }
+                }
+            }
+
+            if (showExportPasswordDialog) {
+                AlertDialog(
+                    onDismissRequest = { showExportPasswordDialog = false },
+                    title = { Text("🔒 تعيين كلمة سر للنسخة الاحتياطية", fontWeight = FontWeight.Bold, color = SoftTheme.SoftPink) },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text(
+                                "أدخلي كلمة سر لحماية نسختك الاحتياطية. ستُطلب منكِ هذه الكلمة عند استعادة البيانات على هذا الجهاز أو أي جهاز آخر.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = SoftTheme.TextWhite
+                            )
+                            OutlinedTextField(
+                                value = exportPasswordInput,
+                                onValueChange = { exportPasswordInput = it },
+                                label = { Text("كلمة سر النسخة الاحتياطية 🔑") },
+                                singleLine = true,
+                                visualTransformation = PasswordVisualTransformation(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = SoftTheme.SoftPink,
+                                    unfocusedBorderColor = SoftTheme.SoftGray,
+                                    focusedLabelColor = SoftTheme.SoftPink
+                                ),
+                                modifier = Modifier.fillMaxWidth().testTag("export_password_input")
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                if (exportPasswordInput.isBlank()) {
+                                    Toast.makeText(context, "يرجى إدخال كلمة سر لحماية النسخة الاحتياطية", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    pendingExportPassword = exportPasswordInput
+                                    showExportPasswordDialog = false
+                                    val timeStamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
+                                    exportLauncher.launch("woman_companion_backup_$timeStamp.db")
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink)
+                        ) {
+                            Text("تأكيد وتحديد المكان 📤", color = androidx.compose.ui.graphics.Color.White, fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showExportPasswordDialog = false }) {
+                            Text("إلغاء", color = SoftTheme.SoftGray)
+                        }
+                    },
+                    containerColor = SoftTheme.DeepSlate
+                )
+            }
+
+            if (showImportPasswordDialog) {
+                AlertDialog(
+                    onDismissRequest = { showImportPasswordDialog = false },
+                    title = { Text("🔑 أدخلي كلمة سر النسخة الاحتياطية", fontWeight = FontWeight.Bold, color = SoftTheme.MintTeal) },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text(
+                                "يرجى إدخال كلمة السر التي قمتِ بتحديدها عند تصدير النسخة الاحتياطية لفك تشفيرها واستعادتها.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = SoftTheme.TextWhite
+                            )
+                            OutlinedTextField(
+                                value = importPasswordInput,
+                                onValueChange = { importPasswordInput = it },
+                                label = { Text("كلمة سر النسخة 🔑") },
+                                singleLine = true,
+                                visualTransformation = PasswordVisualTransformation(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = SoftTheme.MintTeal,
+                                    unfocusedBorderColor = SoftTheme.SoftGray,
+                                    focusedLabelColor = SoftTheme.MintTeal
+                                ),
+                                modifier = Modifier.fillMaxWidth().testTag("import_password_input")
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                val uri = pendingImportUri
+                                showImportPasswordDialog = false
+                                if (uri != null && importPasswordInput.isNotBlank()) {
+                                    val (isValid, tempFile) = BackupManager.validateBackupFile(context, uri, importPasswordInput)
+                                    if (isValid && tempFile != null) {
+                                        pendingImportFile = tempFile
+                                        importErrorMessage = null
+                                        showConfirmImportDialog = true
+                                    } else {
+                                        importErrorMessage = "عفواً، كلمة السر غير صحيحة أو ملف النسخة غير صالح."
+                                        Toast.makeText(context, "فشل فك تشفير النسخة الاحتياطية.", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.MintTeal)
+                        ) {
+                            Text("فك التشفير والتحقق 🔓", color = androidx.compose.ui.graphics.Color.Black, fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showImportPasswordDialog = false }) {
+                            Text("إلغاء", color = SoftTheme.SoftGray)
+                        }
+                    },
+                    containerColor = SoftTheme.DeepSlate
+                )
+            }
+
+            if (showConfirmImportDialog && pendingImportFile != null) {
+                AlertDialog(
+                    onDismissRequest = {
+                        showConfirmImportDialog = false
+                        pendingImportFile?.delete()
+                        pendingImportFile = null
+                    },
+                    title = { Text("📥 تأكيد استعادة النسخة الاحتياطية", fontWeight = FontWeight.Bold, color = SoftTheme.MintTeal) },
+                    text = {
+                        Text(
+                            "هيتم استبدال البيانات الحالية بالكامل، متأكدة؟\n\nتأكدي من حفظ أية بيانات هامة حالية قبل الاستبدال.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = SoftTheme.TextWhite
+                        )
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                val file = pendingImportFile
+                                showConfirmImportDialog = false
+                                if (file != null) {
+                                    val success = BackupManager.restoreBackupFile(context, file)
+                                    if (success) {
+                                        Toast.makeText(context, "تمت استعادة البيانات بنجاح! يتم إعادة تحميل التطبيق...", Toast.LENGTH_LONG).show()
+                                        (context as? android.app.Activity)?.recreate()
+                                    } else {
+                                        Toast.makeText(context, "حدث خطأ أثناء استعادة الملف.", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.MintTeal)
+                        ) {
+                            Text("تأكيد الاستبدال", color = androidx.compose.ui.graphics.Color.Black, fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = {
+                            showConfirmImportDialog = false
+                            pendingImportFile?.delete()
+                            pendingImportFile = null
+                        }) {
+                            Text("إلغاء", color = SoftTheme.SoftGray)
+                        }
+                    },
+                    containerColor = SoftTheme.DeepSlate
+                )
+            }
+
+            // About Jouri Card
+            AboutJouriCard()
 
             // Factory Reset / Nuke Card
             Card(
@@ -548,7 +992,7 @@ fun SettingsScreen(
                 Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("حذف جميع البيانات (Factory Reset) ⚠️", fontWeight = FontWeight.Bold, color = SoftTheme.RedDanger)
                     Text(
-                        "تطبيق رفيق المرأة يعمل بشكل أوفلاين بالكامل. نسيان رمز الـ PIN أو حذف التطبيق سيؤدي لضياع بياناتك المكتوبة. يمكنك تصفير كافة السجلات الحالية من هنا.",
+                        "تطبيق جوري يعمل بشكل أوفلاين بالكامل. نسيان رمز الـ PIN أو حذف التطبيق سيؤدي لضياع بياناتك المكتوبة. يمكنك تصفير كافة السجلات الحالية من هنا.",
                         style = MaterialTheme.typography.bodySmall,
                         color = SoftTheme.SoftGray
                     )
@@ -562,6 +1006,329 @@ fun SettingsScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+data class AchievementBadge(
+    val id: String,
+    val title: String,
+    val description: String,
+    val icon: String,
+    val isUnlocked: Boolean,
+    val suggestionText: String
+)
+
+@Composable
+fun GentleAchievementsCard(
+    viewModel: WomanCompanionViewModel
+) {
+    val pregState by viewModel.pregnancyState.collectAsStateWithLifecycle()
+    val hasExportedBackup by viewModel.hasExportedBackupState.collectAsStateWithLifecycle()
+    val hasGeneratedDoctorReport by viewModel.hasGeneratedDoctorReportState.collectAsStateWithLifecycle()
+    val allFetalLogs by viewModel.allFetalGrowthLogsState.collectAsStateWithLifecycle()
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val alarmManager = remember { context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager }
+    val canScheduleExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        alarmManager?.canScheduleExactAlarms() ?: true
+    } else {
+        true
+    }
+
+    val isProfileComplete = !pregState?.motherName.isNullOrBlank()
+    val hasFetalLog = allFetalLogs.isNotEmpty()
+
+    val badges = listOf(
+        AchievementBadge(
+            id = "ach_profile",
+            title = "الملف الشخصي 👤",
+            description = "تم إعداد بياناتكِ الكريمة بنجاح لتقديم رعاية مخصصة.",
+            icon = "👤",
+            isUnlocked = isProfileComplete,
+            suggestionText = "أكملي اسمكِ الكريم في الإعدادات لتخصيص تجربتكِ 👤"
+        ),
+        AchievementBadge(
+            id = "ach_backup",
+            title = "حفظ البيانات 📦",
+            description = "قام بحفظ وتصدير أول نسخة احتياطية بأمان.",
+            icon = "📦",
+            isUnlocked = hasExportedBackup,
+            suggestionText = "جرّبي تصدير نسخة احتياطية لحفظ بياناتكِ بأمان 🔒"
+        ),
+        AchievementBadge(
+            id = "ach_doctor_report",
+            title = "تقرير الطبيبة 🩺",
+            description = "أنشأتِ أول تقرير طبي شامل لمشاركته مع طبيبتكِ المعالجة.",
+            icon = "🩺",
+            isUnlocked = hasGeneratedDoctorReport,
+            suggestionText = "أنشئي تقريراً طبياً لمشاركته مع طبيبتكِ عند الزيارة القادمة 🩺"
+        ),
+        AchievementBadge(
+            id = "ach_fetal_growth",
+            title = "متابعة نمو الجنين 👶",
+            description = "سجّلتِ أول قياس لنمو طفلكِ المبارك.",
+            icon = "👶",
+            isUnlocked = hasFetalLog,
+            suggestionText = "سجّلي أول قياس لنمو طفلكِ في شاشة نمو الجنين 👶"
+        ),
+        AchievementBadge(
+            id = "ach_exact_alarm",
+            title = "التنبيهات الدقيقة ⏰",
+            description = "تم تفعيل صلاحيات التنبيهات الدقيقة للتذكيرات.",
+            icon = "⏰",
+            isUnlocked = canScheduleExact,
+            suggestionText = "فعّلي صلاحية التنبيهات الدقيقة لتذكيركِ بأدويتكِ في وقتها ⏰"
+        )
+    )
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("gentle_achievements_card")
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text(
+                "شارات خطوة بخطوة 🌸",
+                fontWeight = FontWeight.Bold,
+                color = SoftTheme.MintTeal,
+                fontSize = 16.sp
+            )
+            Text(
+                "تقدير هادئ ولطيف لإنجازاتكِ الصحية المفيدة، دون أي ضغوطات يومية.",
+                style = MaterialTheme.typography.bodySmall,
+                color = SoftTheme.SoftGray
+            )
+
+            badges.forEach { badge ->
+                if (badge.isUnlocked) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                SoftTheme.MintTeal.copy(alpha = 0.12f),
+                                RoundedCornerShape(14.dp)
+                            )
+                            .padding(12.dp)
+                            .testTag("badge_unlocked_${badge.id}"),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(badge.icon, fontSize = 22.sp)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    badge.title,
+                                    fontWeight = FontWeight.Bold,
+                                    color = SoftTheme.MintTeal,
+                                    fontSize = 14.sp
+                                )
+                                Text("✨ مكتملة", style = MaterialTheme.typography.labelSmall, color = SoftTheme.MintTeal)
+                            }
+                            Text(
+                                badge.description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = SoftTheme.TextWhite
+                            )
+                        }
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                SoftTheme.SoftGray.copy(alpha = 0.08f),
+                                RoundedCornerShape(14.dp)
+                            )
+                            .padding(12.dp)
+                            .testTag("badge_suggestion_${badge.id}"),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text("🔒", fontSize = 18.sp)
+                        Text(
+                            badge.suggestionText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SoftTheme.SoftGray,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun BatteryOptimizationCard() {
+    val context = LocalContext.current
+    var isExpanded by remember { mutableStateOf(false) }
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.fillMaxWidth().testTag("battery_optimization_card")
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("🔋⚡", fontSize = 24.sp)
+                Column {
+                    Text(
+                        "ضمان عمل التذكيرات والخطوات بالخلفية ⚡",
+                        fontWeight = FontWeight.Bold,
+                        color = SoftTheme.SoftPink,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        "استثناء البطارية وتوجيهات الهواتف (سامسونج، شاومي، أوبو)",
+                        color = SoftTheme.SoftGray,
+                        fontSize = 11.sp
+                    )
+                }
+            }
+
+            Text(
+                "تقوم بعض الهواتف (مثل Xiaomi/MIUI، Samsung، Oppo/ColorOS) بإنهاء خدمات الخلفية تلقائياً مما قد يؤدي لتأخر التذكيرات أو إيقاف عداد الخطوات. استثناء التطبيق يضمن لكِ استلام كافة التنبيهات في وقتها.",
+                style = MaterialTheme.typography.bodySmall,
+                color = SoftTheme.TextWhite,
+                lineHeight = 18.sp
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = {
+                        try {
+                            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            }
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            try {
+                                val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                context.startActivity(intent)
+                            } catch (e2: Exception) {
+                                Toast.makeText(context, "يرجى فتح إعدادات البطارية يدوياً باستثناء جوري 🌸", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
+                    modifier = Modifier.weight(1f).testTag("battery_exemption_button")
+                ) {
+                    Text("طلب استثناء البطارية ⚡", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+
+                OutlinedButton(
+                    onClick = { isExpanded = !isExpanded },
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SoftTheme.MintTeal),
+                    border = BorderStroke(1.dp, SoftTheme.MintTeal),
+                    modifier = Modifier.testTag("oem_battery_guidance_toggle")
+                ) {
+                    Text(if (isExpanded) "إخفاء التوجيهات 🔼" else "تعليمات الهاتف 📲", fontSize = 12.sp)
+                }
+            }
+
+            if (isExpanded) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(SoftTheme.DeepSlate)
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("📱 تعليمات خاصة بحسب نوع الهاتف:", fontWeight = FontWeight.Bold, color = SoftTheme.MintTeal, fontSize = 13.sp)
+                    Text("• شاومي / Xiaomi / MIUI / POCO:\nالإعدادات ⚙️ ← التطبيقات ← إدارة التطبيقات ← جوري 🌸 ← تفعيل 'البدء التلقائي Autostart' 🟢 + اختر موفر البطارية: 'لا توجد قيود No restrictions'.", color = SoftTheme.SoftGray, fontSize = 11.sp, lineHeight = 16.sp)
+                    Text("• سامسونج / Samsung:\nالإعدادات ⚙️ ← البطارية والعناية بالجهاز ← البطارية ← حدود استخدام الخلفية ← إضافة 'جوري' لقائمة 'التطبيقات التي لا توضع في وضع السكون أبداً'.", color = SoftTheme.SoftGray, fontSize = 11.sp, lineHeight = 16.sp)
+                    Text("• أوبو / Oppo / Realme / ColorOS:\nالإعدادات ⚙️ ← البطارية ← إدارة إمداد الطاقة ← تفعيل 'السماح بالبدء التلقائي' و'السماح بالعمل في الخلفية'.", color = SoftTheme.SoftGray, fontSize = 11.sp, lineHeight = 16.sp)
+                    Text("• فيفو / هواوي / Vivo / Huawei:\nالإعدادات ⚙️ ← البطارية ← التشغيل التلقائي للتطبيقات ← تفعيل إمكانيات الخلفية والتشغيل التلقائي.", color = SoftTheme.SoftGray, fontSize = 11.sp, lineHeight = 16.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AboutJouriCard() {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Card(
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(130.dp)
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(id = com.example.R.drawable.app_showcase_split_1783590277277),
+                        contentDescription = "استعراض تطبيق جوري",
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(CircleShape)
+                        .border(1.5.dp, SoftTheme.SoftPink, CircleShape)
+                ) {
+                    androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(id = com.example.R.drawable.jouri_showcase_1783592034174),
+                        contentDescription = "جوري",
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+                Column {
+                    Text(
+                        "تطبيق جوري 🌸",
+                        fontWeight = FontWeight.Bold,
+                        color = SoftTheme.TextWhite,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        "رفيقتكِ الذكية لصحة وحياة مطمئنة",
+                        color = SoftTheme.SoftPink,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+
+            Text(
+                "تطبيق جوري مصمم خصيصاً لخصوصيتكِ التامة وراحتكِ. يعمل محلياً بنسبة 100% دون خوادم وسيطة، مع إمكانية التبديل السلس بين طور تتبع الدورة والخصوبة وطور الحمل المبارك.",
+                style = MaterialTheme.typography.bodySmall,
+                color = SoftTheme.SoftGray,
+                lineHeight = 18.sp
+            )
         }
     }
 }
