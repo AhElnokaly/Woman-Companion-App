@@ -109,4 +109,5 @@
 ---
 
 ### CI/CD & Automation
-- **`.github/workflows/android.yml`**: GitHub Actions workflow for automated CI/CD: JDK 21 setup (matching AGP 9.1+ requirement), debug keystore restoration from Base64, environment file preparation, gradlew execution permissions, Gradle caching, debug APK assembly (`assembleDebug`), direct APK artifact upload, and non-blocking unit test execution.
+- **`.github/workflows/android.yml`**: GitHub Actions workflow for automated CI/CD: JDK 21 setup (matching AGP 9.1+ requirement), automated keystore decoding and keytool fallback generation, environment file preparation, gradlew execution permissions, Gradle caching, debug APK assembly (`assembleDebug`), direct APK artifact upload, and non-blocking unit test execution.
+- **`docs/ci-cd-reference.md`**: Canonical reference and troubleshooting guide for modern Android CI/CD pipelines (AGP 9.1+, Gradle 9.3.1, JDK 21, KSP2 headless fix, signing validation fallback, and build performance optimization).
