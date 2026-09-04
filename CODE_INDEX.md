@@ -109,4 +109,4 @@
 ---
 
 ### CI/CD & Automation
-- **`.github/workflows/android.yml`**: GitHub Actions workflow for automated CI/CD: Java 17 setup, debug keystore decoding from Base64, gradlew execution permissions, Gradle caching, unit testing (`testDebugUnitTest`), debug APK assembly (`assembleDebug`), and APK artifact upload.
+- **`.github/workflows/android.yml`**: GitHub Actions workflow for automated CI/CD: JDK 21 setup (matching AGP 9.1+ requirement), debug keystore restoration from Base64, environment file preparation, gradlew execution permissions, Gradle caching, debug APK assembly (`assembleDebug`), direct APK artifact upload, and non-blocking unit test execution.
