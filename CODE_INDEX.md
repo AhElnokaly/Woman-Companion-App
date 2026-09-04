@@ -105,3 +105,8 @@
 - **`util/ArabicFormatter.kt`**: Grammatically correct Arabic plural formatting (`formatArabicDays`).
 - **`util/BackupManager.kt`**: Atomic SQLCipher database export and import with user passphrases and integrity verification.
 - **`util/PdfReportGenerator.kt`**: Formatted Arabic medical summary PDF generator for doctor appointments.
+
+---
+
+### CI/CD & Automation
+- **`.github/workflows/android.yml`**: GitHub Actions workflow for automated CI/CD: Java 17 setup, debug keystore decoding from Base64, gradlew execution permissions, Gradle caching, unit testing (`testDebugUnitTest`), debug APK assembly (`assembleDebug`), and APK artifact upload.
