@@ -39,7 +39,7 @@ fun AppointmentsSubScreen(viewModel: WomanCompanionViewModel) {
     var notesInput by remember { mutableStateOf("") }
     var selectedDateTimeMillis by remember { mutableStateOf(System.currentTimeMillis() + 3L * 24 * 60 * 60 * 1000) }
 
-    val dateTimeFormatter = remember { SimpleDateFormat("EEEE d MMMM yyyy - hh:mm a", Locale("ar")) }
+    val dateTimeFormatter = remember { SimpleDateFormat("EEEE d MMMM yyyy - hh:mm a", Locale.forLanguageTag("ar")) }
 
     Column(
         modifier = Modifier

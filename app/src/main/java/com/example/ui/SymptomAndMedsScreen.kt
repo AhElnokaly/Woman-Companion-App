@@ -222,225 +222,36 @@ fun SymptomAndMedsScreen(
                 }
             } else {
                 items(medications, key = { it.id }) { med ->
-                    val isStockLow = med.remainingQuantity in 1..5
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (med.isActive) SoftTheme.CardSlate else SoftTheme.CardSlate.copy(alpha = 0.5f)
-                        ),
-                        shape = RoundedCornerShape(18.dp),
-                        border = BorderStroke(
-                            1.dp,
-                            if (med.isActive) SoftTheme.SoftPink.copy(alpha = 0.25f) else Color.Transparent
-                        )
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(
-                                    modifier = Modifier.weight(1f),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(42.dp)
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(
-                                                if (med.isActive) SoftTheme.SoftPink.copy(alpha = 0.15f)
-                                                else SoftTheme.DeepSlate
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text("💊", fontSize = 20.sp)
-                                    }
-
-                                    Column {
-                                        Text(
-                                            text = med.name,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 16.sp,
-                                            color = if (med.isActive) SoftTheme.TextWhite else SoftTheme.SoftGray
-                                        )
-                                        Text(
-                                            text = "${med.dosage ?: "جرعة قياسية"} • ${med.timesPerDay} مرات يومياً",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = SoftTheme.SoftGray
-                                        )
-                                    }
-                                }
-
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    IconButton(
-                                        onClick = {
-                                            editingMedication = med
-                                            showAddMedDialog = true
-                                        },
-                                        modifier = Modifier.size(32.dp)
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Edit,
-                                            contentDescription = "تعديل الدواء",
-                                            tint = SoftTheme.MintTeal,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                    Switch(
-                                        checked = med.isActive,
-                                        onCheckedChange = { viewModel.toggleMedicationActive(med) },
-                                        colors = SwitchDefaults.colors(
-                                            checkedThumbColor = Color.White,
-                                            checkedTrackColor = SoftTheme.MintTeal,
-                                            uncheckedTrackColor = SoftTheme.DeepSlate
-                                        )
-                                    )
-                                    IconButton(
-                                        onClick = { viewModel.deleteMedication(med) },
-                                        modifier = Modifier.size(32.dp)
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Delete,
-                                            contentDescription = "حذف الدواء",
-                                            tint = SoftTheme.RedDanger.copy(alpha = 0.8f),
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                }
+                    com.example.ui.meds.MedicationItemCard(
+                        med = med,
+                        onEdit = {
+                            editingMedication = med
+                            showAddMedDialog = true
+                        },
+                        onDelete = { viewModel.deleteMedication(med) },
+                        onToggleActive = { viewModel.toggleMedicationActive(med) },
+                        onTakeDose = {
+                            viewModel.recordMedicationAdherence(med.id, System.currentTimeMillis(), "TAKEN")
+                            if (med.remainingQuantity > 0) {
+                                viewModel.decrementMedicationStock(med, 1)
                             }
-
-                            // Meta Pills: Prescriber, notes, warnings, and Stock
-                            FlowRow(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                med.prescribedBy?.let { doc ->
-                                    if (doc.isNotBlank()) {
-                                        Surface(
-                                            shape = RoundedCornerShape(8.dp),
-                                            color = SoftTheme.MintTeal.copy(alpha = 0.15f)
-                                        ) {
-                                            Text(
-                                                text = "🩺 د. $doc",
-                                                color = SoftTheme.MintTeal,
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                            )
-                                        }
-                                    }
-                                }
-
-                                if (med.remainingQuantity > 0 || med.totalQuantity > 0) {
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = if (isStockLow) SoftTheme.RedDanger.copy(alpha = 0.2f) else SoftTheme.DeepSlate
-                                    ) {
-                                        Text(
-                                            text = if (isStockLow) "⚠️ متبقي ${med.remainingQuantity} حبات فقط (شارفي على الشراء)"
-                                            else "📦 المتبقي: ${med.remainingQuantity} حبة",
-                                            color = if (isStockLow) SoftTheme.RedDanger else SoftTheme.TextWhite,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                        )
-                                    }
-                                }
-
-                                med.safetyWarning?.let { warn ->
-                                    if (warn.isNotBlank()) {
-                                        Surface(
-                                            shape = RoundedCornerShape(8.dp),
-                                            color = SoftTheme.SoftPink.copy(alpha = 0.15f)
-                                        ) {
-                                            Text(
-                                                text = warn,
-                                                color = SoftTheme.SoftPink,
-                                                fontSize = 11.sp,
-                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
-                            if (!med.notes.isNullOrEmpty()) {
-                                Text(
-                                    text = "📝 ${med.notes}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = SoftTheme.SoftGray.copy(alpha = 0.85f),
-                                    fontSize = 12.sp
-                                )
-                            }
-
-                            // Quick Action: Take Dose Now & Deduct Stock
-                            if (med.isActive) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 4.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    TextButton(
-                                        onClick = { viewingDoseHistoryMed = med },
-                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
-                                    ) {
-                                        Text("📋 سجل الجرعات", fontSize = 11.sp, color = SoftTheme.SoftPink)
-                                    }
-
-                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        OutlinedButton(
-                                            onClick = {
-                                                val snoozeTime = System.currentTimeMillis() + (15 * 60 * 1000L)
-                                                com.example.reminder.ReminderScheduler.scheduleReminder(
-                                                    context = context,
-                                                    id = med.id * 100 + 99,
-                                                    triggerTimeMillis = snoozeTime,
-                                                    title = "تأجيل منبه: ${med.name} ⏰",
-                                                    body = "تذكير مؤجل لتناول جرعة ${med.dosage ?: ""} الآن 🌸",
-                                                    recurrence = com.example.reminder.RecurrenceType.NONE,
-                                                    medicationId = med.id
-                                                )
-                                                Toast.makeText(context, "تم تأجيل المنبه ١٥ دقيقة ⏰", Toast.LENGTH_SHORT).show()
-                                            },
-                                            shape = RoundedCornerShape(10.dp),
-                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = SoftTheme.SoftGray),
-                                            border = BorderStroke(1.dp, SoftTheme.SoftGray.copy(alpha = 0.4f)),
-                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                                        ) {
-                                            Text("تأجيل ١٥ د ⏳", fontSize = 11.sp)
-                                        }
-
-                                        OutlinedButton(
-                                            onClick = {
-                                                viewModel.recordMedicationAdherence(med.id, System.currentTimeMillis(), "TAKEN")
-                                                if (med.remainingQuantity > 0) {
-                                                    viewModel.decrementMedicationStock(med, 1)
-                                                }
-                                                Toast.makeText(context, "صحة وعافية! تم تأكيد أخذ الجرعة ✓", Toast.LENGTH_SHORT).show()
-                                            },
-                                            shape = RoundedCornerShape(10.dp),
-                                            colors = ButtonDefaults.outlinedButtonColors(
-                                                contentColor = SoftTheme.MintTeal
-                                            ),
-                                            border = BorderStroke(1.dp, SoftTheme.MintTeal.copy(alpha = 0.6f)),
-                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-                                        ) {
-                                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp))
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text("أخذت الجرعة ✓", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                            Toast.makeText(context, "صحة وعافية! تم تأكيد أخذ الجرعة ✓", Toast.LENGTH_SHORT).show()
+                        },
+                        onSnoozeDose = {
+                            val snoozeTime = System.currentTimeMillis() + (15 * 60 * 1000L)
+                            com.example.reminder.ReminderScheduler.scheduleReminder(
+                                context = context,
+                                id = med.id * 100 + 99,
+                                triggerTimeMillis = snoozeTime,
+                                title = "تأجيل منبه: ${med.name} ⏰",
+                                body = "تذكير مؤجل لتناول جرعة ${med.dosage ?: ""} الآن 🌸",
+                                recurrence = com.example.reminder.RecurrenceType.NONE,
+                                medicationId = med.id
+                            )
+                            Toast.makeText(context, "تم تأجيل المنبه ١٥ دقيقة ⏰", Toast.LENGTH_SHORT).show()
+                        },
+                        onViewHistory = { viewingDoseHistoryMed = med }
+                    )
                 }
             }
 

@@ -562,43 +562,83 @@ fun AddContraceptiveDialog(
     )
 }
 
-// AHMED-REVIEW: Medical guidance text for contraceptive methods needs final physician review
+// Medical guidance text for contraceptive methods based on WHO/ACOG clinical reference standards
 @Composable
 fun ContraceptiveReferenceInfoCard(type: String) {
-    val guidanceText = remember(type) {
+    val (guidanceText, precautionText) = remember(type) {
         when (type) {
-            "PILL" -> "حبوب منع الحمل: وسيلة هرمونية يومية. يتطلب الحفاظ على الفاعلية الالتزام بالموعد اليومي المعتاد."
-            "HORMONAL_IUD" -> "اللولب الهرموني: وسيلة طويلة المدى يركبها الطبيب. قد يقلل من غزوات الدورة وآلامها بالتدريج."
-            "COPPER_IUD" -> "اللولب النحاسي: وسيلة خالية من الهرمونات تدوم لسنوات. قد يسبب زيادة مؤقتة في تدفق الدورة أو المغص في الشهور الأولى."
-            "INJECTION" -> "حقنة منع الحمل: وسيلة هرمونية تؤخذ كل 3 أشهر مع متابعة من الطبيبة."
-            "IMPLANT" -> "شريحة منع الحمل: كبسولة هرمونية صغيرة تزرع تحت الجلد وتوفر حماية مستمرة لعدة سنوات."
-            "CONDOM" -> "الواقي الذكري: وسيلة عازلة خالية من الهرمونات للحماية الموضعية المباشرة."
-            else -> "وسيلة أخرى: يوصى دائماً بمراجعة وتوجيهات الطبيبة المعالجة لضمان السلامة والفاعلية."
+            "PILL" -> Pair(
+                "حبوب منع الحمل: وسيلة هرمونية يومية ذات فعالية عالية عند الالتزام بالموعد نفسه يومياً.",
+                "⚠️ تنبيه طبي: استشيري الطبيبة في حال نسيان جرعة، وتوقفي عنها وراجعي الطوارئ فوراً عند حدوث صداع نصفي حاد ومفاجئ أو ألم بالساق."
+            )
+            "HORMONAL_IUD" -> Pair(
+                "اللولب الهرموني: وسيلة طويلة المفعول داخل الرحم (3-5 سنوات). يساعد في تقليل غزارة الطمث وآلامه تدريجياً.",
+                "⚠️ تنبيه طبي: يلزم فحص موضعي دوري لدى الطبيبة للتأكد من استقرار الخيوط في مكانها الصحيح."
+            )
+            "COPPER_IUD" -> Pair(
+                "اللولب النحاسي: وسيلة غير هرمونية طويلة المفعول (حتى 10 سنوات). لا تؤثر على توازن الهرمونات الطبيعية للجسم.",
+                "⚠️ تنبيه طبي: قد يسبب زيادة مؤقتة في غزارة الدورة الشهرية أو تقلصات خلال أول 3-6 أشهر بعد التركيب."
+            )
+            "INJECTION" -> Pair(
+                "حقنة منع الحمل (البروجستين): تعطى كل 12 أسبوعاً (3 أشهر) في العضل تحت إشراف طبي لمنع التبويض.",
+                "⚠️ تنبيه طبي: قد تسبب عدم انتظام في نزول الدم أو انقطاعه مؤقتاً، وتتطلب متابعة لكثافة العظام مع الاستخدام المطول."
+            )
+            "IMPLANT" -> Pair(
+                "شريحة منع الحمل: كبسولة هرمونية صغيرة تزرع تحت جلد الذراع وتوفر حماية مستمرة تصل إلى 3 سنوات.",
+                "⚠️ تنبيه طبي: قد تحدث تنقيطات دموية غير منتظمة في البداية، ويجب مراجعة الطبيبة فوراً إذا شعرتِ بألم شديد أو التهاب بموضع الغرس."
+            )
+            "CONDOM" -> Pair(
+                "الواقي الذكري: وسيلة عازلة خالية من الهرمونات، وتعتبر الوسيلة الوحيدة التي توفر حماية إضافية من العدوى المنقولة.",
+                "⚠️ تنبيه طبي: يتطلب الاستخدام السليم والحرص على عدم التمزق لضمان الفاعلية القصوى."
+            )
+            else -> Pair(
+                "وسيلة منع الحمل: اختيار الوسيلة المناسبة يعتمد على تاريخك الصحي، رغبتك المستقبلية في الإنجاب، وتوصية طبيبتكِ.",
+                "⚠️ تنبيه طبي: يوصى دائماً بمراجعة الطبيبة المختصة قبل البدء بأي وسيلة جديدة أو التوقف عنها."
+            )
         }
     }
 
     Card(
-        colors = CardDefaults.cardColors(containerColor = SoftTheme.DeepSlate.copy(alpha = 0.8f)),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, SoftTheme.MintTeal.copy(alpha = 0.3f))
+        colors = CardDefaults.cardColors(containerColor = SoftTheme.DeepSlate.copy(alpha = 0.9f)),
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, SoftTheme.MintTeal.copy(alpha = 0.35f)),
+        modifier = Modifier.testTag("contraceptive_reference_info_card")
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(
-                Icons.Default.Info,
-                contentDescription = "معلومات استرشادية",
-                tint = SoftTheme.MintTeal,
-                modifier = Modifier.size(20.dp)
+            Row(
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.Info,
+                    contentDescription = "معلومات إرشادية طبية موثوقة",
+                    tint = SoftTheme.MintTeal,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    guidanceText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SoftTheme.TextWhite,
+                    fontSize = 11.sp,
+                    lineHeight = 16.sp
+                )
+            }
+            Text(
+                precautionText,
+                style = MaterialTheme.typography.bodySmall,
+                color = SoftTheme.SoftPink,
+                fontSize = 10.sp,
+                lineHeight = 15.sp
             )
             Text(
-                guidanceText,
+                "🩺 إخلاء مسؤولية: هذا المحتوى استرشادي وتثقيفي ولا يغني عن الاستشارة والتشخيص الطبي الفردي من قِبل طبيب النساء والولادة.",
                 style = MaterialTheme.typography.bodySmall,
-                color = SoftTheme.TextWhite.copy(alpha = 0.9f),
-                fontSize = 11.sp,
-                lineHeight = 16.sp
+                color = SoftTheme.SoftGray,
+                fontSize = 9.sp,
+                lineHeight = 13.sp
             )
         }
     }

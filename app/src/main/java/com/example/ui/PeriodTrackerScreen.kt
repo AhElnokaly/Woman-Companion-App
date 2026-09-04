@@ -38,6 +38,12 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
+import com.example.ui.period.PmsInsightsCard
+import com.example.ui.period.PeriodLogDialog
+import com.example.ui.period.PeriodCalendarSection
+import com.example.ui.period.PeriodHistorySection
+import com.example.ui.period.PeriodHealthAdvisoryCard
+import com.example.ui.pregnancy.*
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -161,6 +167,17 @@ fun PeriodTrackerScreen(
                 )
             }
 
+            // PMS Insights and Care Card
+            if (isPregnant?.isPregnant != true) {
+                val nextStartPredicted = predictedPeriods.firstOrNull()?.first
+                item {
+                    PmsInsightsCard(
+                        periodLogs = periodLogs,
+                        nextPeriodPredictedStart = nextStartPredicted
+                    )
+                }
+            }
+
             val irregularityNotices = viewModel.detectCycleIrregularityPatterns()
             if (irregularityNotices.isNotEmpty()) {
                 items(irregularityNotices) { notice ->
@@ -274,415 +291,42 @@ fun PeriodTrackerScreen(
                     // Baby Info Card
                     if (prog.weeks >= 14 || isGenderKnown) {
                         item {
-                            if (isGenderKnown) {
-                                Card(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                                    shape = RoundedCornerShape(16.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(12.dp).fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Row(
-                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(40.dp)
-                                                    .clip(CircleShape)
-                                                    .background(SoftTheme.DeepSlate),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Text(if (babyGender == "ولد") "👶" else if (babyGender == "بنت") "👧" else "🤰", fontSize = 18.sp)
-                                            }
-                                            Column {
-                                                val genderEmoji = if (babyGender == "ولد") "💙" else if (babyGender == "بنت") "💗" else "✨"
-                                                val genderLabel = if (babyGender == "ولد") "ولد صالح معافى" else if (babyGender == "بنت") "بنت صالحة معافاة" else "مفاجأة مباركة"
-                                                val nameLabel = if (!babyName.isNullOrBlank()) "الاسم المقترح: $babyName" else "لم يتم اختيار اسم بعد"
-                                                
-                                                Text(
-                                                    text = "$genderLabel $genderEmoji",
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = SoftTheme.TextWhite
-                                                )
-                                                Text(
-                                                    text = nameLabel,
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = SoftTheme.SoftPink
-                                                )
-                                            }
-                                        }
-                                        Text(
-                                            text = "تعديل 📝",
-                                            color = SoftTheme.SoftPink,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.clickable {
-                                                babyGenderInput = babyGender ?: ""
-                                                babyNameInput = babyName ?: ""
-                                                showBabyInfoDialog = true
-                                            }
-                                        )
-                                    }
+                            PregnancyBabyInfoCard(
+                                isGenderKnown = isGenderKnown,
+                                babyGender = babyGender,
+                                babyName = babyName,
+                                onEditBabyInfo = {
+                                    babyGenderInput = babyGender ?: ""
+                                    babyNameInput = babyName ?: ""
+                                    showBabyInfoDialog = true
                                 }
-                            } else {
-                                Card(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                                    shape = RoundedCornerShape(24.dp)
-                                ) {
-                                    Column(
-                                        modifier = Modifier.padding(20.dp),
-                                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Row(
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Text("🧸", fontSize = 22.sp)
-                                                Text(
-                                                    text = "جنينكِ الغالي",
-                                                    style = MaterialTheme.typography.titleSmall,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = SoftTheme.TextWhite
-                                                )
-                                            }
-                                            Text(
-                                                text = "تسجيل 📝",
-                                                color = SoftTheme.SoftPink,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                fontWeight = FontWeight.Bold,
-                                                modifier = Modifier.clickable {
-                                                    babyGenderInput = babyGender ?: ""
-                                                    babyNameInput = babyName ?: ""
-                                                    showBabyInfoDialog = true
-                                                }
-                                            )
-                                        }
-                                        Text(
-                                            text = "لقد دخلتِ الأسبوع ١٤ من الحمل 🌸 هل عرفتِ جنس جنينكِ؟ اضغطي لتسجيله واقتراح اسمه لكي يتفاعل رفيقكِ مع جنينكِ بالاسم والتهنئة اللطيفة! 💕",
-                                            color = SoftTheme.SoftGray,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            lineHeight = 16.sp
-                                        )
-                                        Button(
-                                            onClick = { showBabyInfoDialog = true },
-                                            colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.DeepSlate),
-                                            modifier = Modifier.fillMaxWidth(),
-                                            shape = RoundedCornerShape(12.dp)
-                                        ) {
-                                            Text("تسجيل جنس واسم الجنين 👶🍼", color = SoftTheme.SoftPink, fontWeight = FontWeight.Bold)
-                                        }
-                                    }
-                                }
-                            }
+                            )
                         }
                     }
 
                     // Primary Weeks Circle Card
                     item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                            shape = RoundedCornerShape(28.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(24.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(20.dp)
-                            ) {
-                                Text(
-                                    text = if (prog.weeks >= 41) "أنتِ الآن في الشهر العاشر (تخطي موعد الولادة) ⚠️" else "أنتِ الآن في الأسبوع",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = SoftTheme.SoftGray,
-                                    textAlign = TextAlign.Center
-                                )
-
-                                Box(
-                                    modifier = Modifier
-                                        .size(160.dp)
-                                        .drawBehind {
-                                            drawCircle(
-                                                color = SoftTheme.DeepSlate,
-                                                radius = size.minDimension / 2
-                                            )
-                                            drawArc(
-                                                color = trimesterColor,
-                                                startAngle = -90f,
-                                                sweepAngle = if (prog.weeks >= 41) 360f else ((prog.weeks.toFloat() / 40f) * 360f).coerceIn(0f, 360f),
-                                                useCenter = false,
-                                                style = Stroke(width = 14.dp.toPx(), cap = StrokeCap.Round)
-                                            )
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text(
-                                            text = "${prog.weeks}",
-                                            style = MaterialTheme.typography.displayLarge.copy(fontSize = 58.sp),
-                                            fontWeight = FontWeight.Bold,
-                                            color = SoftTheme.TextWhite
-                                        )
-                                        Text(
-                                            text = "الأيام: ${prog.daysIntoWeek}",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = trimesterColor,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-
-                                Column(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "مخطط شهور الحمل التسعة 📅",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = SoftTheme.SoftGray
-                                        )
-                                        Text(
-                                            text = "أنتِ في " + when(activeMonth) {
-                                                1 -> "الشهر الأول"
-                                                2 -> "الشهر الثاني"
-                                                3 -> "الشهر الثالث"
-                                                4 -> "الشهر الرابع"
-                                                5 -> "الشهر الخامس"
-                                                6 -> "الشهر السادس"
-                                                7 -> "الشهر السابع"
-                                                8 -> "الشهر الثامن"
-                                                9 -> "الشهر التاسع"
-                                                else -> "الشهر العاشر ⚠️"
-                                            } + " (${(activeMonthProgress * 100).toInt()}% من الشهر)",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            fontWeight = FontWeight.Bold,
-                                            color = trimesterColor
-                                        )
-                                    }
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        val totalSegments = if (prog.weeks >= 41) 10 else 9
-                                        for (i in 0 until totalSegments) {
-                                            val segProgress = when {
-                                                i < activeMonth - 1 -> 1f
-                                                i == activeMonth - 1 -> activeMonthProgress
-                                                else -> 0f
-                                            }
-                                            Box(
-                                                modifier = Modifier
-                                                    .weight(1f)
-                                                    .height(10.dp)
-                                                    .clip(RoundedCornerShape(5.dp))
-                                                    .background(SoftTheme.DeepSlate)
-                                            ) {
-                                                if (segProgress > 0f) {
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .fillMaxHeight()
-                                                            .fillMaxWidth(segProgress)
-                                                            .background(
-                                                                Brush.horizontalGradient(
-                                                                    colors = listOf(trimesterColor.copy(alpha = 0.7f), trimesterColor)
-                                                                )
-                                                            )
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceEvenly
-                                ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text("الثلث", color = SoftTheme.SoftGray, style = MaterialTheme.typography.bodySmall)
-                                        Text(
-                                            text = if (prog.weeks >= 41) "أمان ممتد" else "${prog.trimester}",
-                                            color = SoftTheme.TextWhite,
-                                            fontWeight = FontWeight.Bold,
-                                            style = MaterialTheme.typography.titleMedium
-                                        )
-                                    }
-                                    VerticalDivider(modifier = Modifier.height(24.dp).width(1.dp), color = SoftTheme.SoftGray)
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text("الأيام المتبقية", color = SoftTheme.SoftGray, style = MaterialTheme.typography.bodySmall)
-                                        Text("${prog.remainingDays}", color = SoftTheme.TextWhite, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                                    }
-                                    VerticalDivider(modifier = Modifier.height(24.dp).width(1.dp), color = SoftTheme.SoftGray)
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text("موعد الولادة", color = SoftTheme.SoftGray, style = MaterialTheme.typography.bodySmall)
-                                        val formatted = SimpleDateFormat("dd MMM", Locale.forLanguageTag("ar")).format(Date(prog.dueDate))
-                                        Text(formatted, color = SoftTheme.TextWhite, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                                    }
-                                }
-                            }
-                        }
+                        PregnancyProgressCard(prog = prog)
                     }
 
                     // Post-term Pregnancy (الشهر العاشر) Supportive Card
                     if (prog.weeks >= 40) {
                         item {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                                shape = RoundedCornerShape(24.dp),
-                                border = BorderStroke(1.5.dp, Color(0xFFFFB300))
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(20.dp),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text("📢", fontSize = 24.sp)
-                                        Text(
-                                            text = "الولادة بعد موعدكِ المقدر (الشهر العاشر) 🌸🏥",
-                                            style = MaterialTheme.typography.titleSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color(0xFFFFB300)
-                                        )
-                                    }
-
-                                    Text(
-                                        text = "صديقتي الغالية، تخطي موعد الولادة المتوقع (الأسبوع 40) هو أمر شائع يحدث لكثير من الأمهات. إليكِ أهم الإرشادات التوعوية للتعامل مع هذه المرحلة ومتابعتها مع طبيبكِ:",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = SoftTheme.TextWhite,
-                                        lineHeight = 18.sp
-                                    )
-
-                                    Card(
-                                        colors = CardDefaults.cardColors(containerColor = SoftTheme.DeepSlate),
-                                        shape = RoundedCornerShape(12.dp)
-                                    ) {
-                                        Column(
-                                            modifier = Modifier.padding(14.dp),
-                                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            Text(
-                                                text = "📋 إرشادات توعوية عامة:",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                fontWeight = FontWeight.Bold,
-                                                color = SoftTheme.MintTeal
-                                            )
-                                            Text(
-                                                text = "• المتابعة مع الطبيبة: التنسيق مع طبيبتكِ المعالجة لتقييم صحة الجنين والمشيمة بحسب الخطة الطبية المناسبة لحالتكِ.\n• متابعة حركة الجنين: الانتباه لنمط حركة الجنين المعتاد، والتواصل الفوري مع الفريق الطبي عند ملاحظة أي تراجع أو تغير ملحوظ في الحركة.\n• الراحة والاسترخاء: الحفاظ على الترطيب الكافي والراحة التامة والنشاط البدني الخفيف وفق إرشادات الطبيب.\n• متى تتوجهين فوراً للمستشفى أو الطوارئ؟ عند نزول السائل الأمنيوسي (ماء الجنين)، حدوث نزيف مهبلي، آلام حادة مستمرة، أو انخفاض ملحوظ في حركة الجنين.",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = SoftTheme.SoftGray,
-                                                lineHeight = 18.sp
-                                            )
-                                        }
-                                    }
-                                }
-                            }
+                            PostTermSupportCard()
                         }
                     }
 
                     // Baby Size Visual Comparison Card
                     item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                            shape = RoundedCornerShape(24.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(20.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(72.dp)
-                                        .clip(RoundedCornerShape(16.dp))
-                                        .background(SoftTheme.DeepSlate),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = prog.comparisonIcon,
-                                        fontSize = 36.sp
-                                    )
-                                }
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "طفلكِ الآن بحجم:",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = SoftTheme.SoftGray
-                                    )
-                                    Text(
-                                        text = prog.comparisonName,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = SoftTheme.SoftPink
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = prog.developmentTip,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = SoftTheme.TextWhite,
-                                        lineHeight = 16.sp
-                                    )
-                                }
-                            }
-                        }
+                        BabySizeComparisonCard(prog = prog)
                     }
 
                     // Safety Birth Baby Announcement Card (Show only late in pregnancy, Week 36 or later)
                     if (prog.weeks >= 36) {
                         item {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                                shape = RoundedCornerShape(24.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(20.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                                ) {
-                                    Text(
-                                        text = "بشرى ولادة جديدة؟ ✨👶🎉",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = SoftTheme.MintTeal
-                                    )
-                                    Text(
-                                        text = "إذا منّ الله عليكِ بالولادة بفضله، شاركينا لنحتفي بكِ ونقدم لكِ إرشادات فترة النفاس والتعافي المثالية الخاصة بطريقة ولادتكِ 💖",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = SoftTheme.SoftGray,
-                                        textAlign = TextAlign.Center,
-                                        lineHeight = 16.sp
-                                    )
-                                    Button(
-                                        onClick = { showDeliveryDialog = true },
-                                        colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
-                                        modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(14.dp)
-                                    ) {
-                                        Text("الحمد لله، وضعتُ مولودي بالسلامة! 🥰", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
-                                    }
-                                }
-                            }
+                            BirthAnnouncementPromptCard(
+                                onAnnounceBirth = { showDeliveryDialog = true }
+                            )
                         }
                     }
 
@@ -917,156 +561,10 @@ fun PeriodTrackerScreen(
 
                 // Smart Health Analysis Card (لوحة التحليل الصحي والذكاء التوجيهي)
                 item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth().animateContentSize(),
-                        colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                        shape = RoundedCornerShape(24.dp),
-                        border = BorderStroke(1.dp, SoftTheme.SoftPink.copy(alpha = 0.3f))
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { isHealthAnalysisExpanded = !isHealthAnalysisExpanded },
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Icon(
-                                        imageVector = Icons.Default.Info,
-                                        contentDescription = null,
-                                        tint = SoftTheme.SoftPink
-                                    )
-                                    Text(
-                                        text = "التحليل الصحي الذكي والتوصيات 🧠",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = SoftTheme.TextWhite
-                                    )
-                                }
-                                Text(
-                                    text = if (isHealthAnalysisExpanded) "إخفاء 🔼" else "تحليل كامل 🔽",
-                                    color = SoftTheme.SoftPink,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-
-                            if (isHealthAnalysisExpanded) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                if (periodLogs.isEmpty()) {
-                                    Text(
-                                        text = "قومي بتسجيل دورتكِ الشهرية الأولى (أو دوراتك السابقة) لنتمكن من تقديم نصائح تغذية وراحة مخصصة ذكياً.",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = SoftTheme.SoftGray
-                                    )
-                                } else {
-                                    val latestLog = periodLogs.maxByOrNull { it.startDate }
-                                    val pain = latestLog?.painLevel ?: 5
-                                    val intensity = latestLog?.flowIntensity ?: "medium"
-                                    val symptoms = latestLog?.symptoms?.split(",")?.filter { it.isNotEmpty() } ?: emptyList()
-
-                                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                        Text(
-                                            text = "بناءً على سجلات دورتكِ وأعراضك الأخيرة، إليكِ تقريرنا الطبي التوجيهي الذكي:",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = SoftTheme.SoftPink
-                                        )
-
-                                        HorizontalDivider(color = SoftTheme.DeepSlate)
-
-                                        // Pain advisory
-                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            Text("🌱", fontSize = 18.sp)
-                                            Column {
-                                                Text("مستوى الألم والتقلصات:", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite, style = MaterialTheme.typography.bodyMedium)
-                                                Text(
-                                                    text = when {
-                                                        pain >= 8 -> "ألم شديد ($pain/10). نوصي بالراحة التامة، استخدام كمادات دافئة على البطن، وتناول المغنيسيوم. إذا استمر الألم الشديد يرجى استشارة الطبيبة."
-                                                        pain >= 5 -> "ألم متوسط ($pain/10). كوب من القرفة أو اليانسون الدافئ قد يساعد في تخفيف الانقباضات بشكل رائع."
-                                                        else -> "ألم خفيف ($pain/10). مستوى ممتاز ومؤشر على توازن هرموني رائع."
-                                                    },
-                                                    color = SoftTheme.SoftGray,
-                                                    style = MaterialTheme.typography.bodySmall
-                                                )
-                                            }
-                                        }
-
-                                        // Flow advisory
-                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            Text("🩸", fontSize = 18.sp)
-                                            Column {
-                                                Text("غزارة الطمث ونقص الحديد:", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite, style = MaterialTheme.typography.bodyMedium)
-                                                Text(
-                                                    text = when (intensity) {
-                                                        "heavy" -> "الطمث غزير. من الضروري جداً زيادة تناول الأطعمة الغنية بالحديد (مثل السبانخ واللحم الأحمر) أو فيتامين سي لتعويض الفقد وتجنب فقر الدم."
-                                                        "light" -> "الطمث خفيف. طبيعي جداً، استمري في شرب الماء والترطيب."
-                                                        else -> "الطمث متوسط ومثالي. كمية تدفق صحية تدل على بطانة رحم سليمة."
-                                                    },
-                                                    color = SoftTheme.SoftGray,
-                                                    style = MaterialTheme.typography.bodySmall
-                                                )
-                                            }
-                                        }
-
-                                        // Symptoms advisory
-                                        if (symptoms.isNotEmpty()) {
-                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                Text("🧠", fontSize = 18.sp)
-                                                Column {
-                                                    Text("التعامل مع الأعراض المرافقة:", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite, style = MaterialTheme.typography.bodyMedium)
-                                                    val advice = symptoms.map { sym ->
-                                                        when (sym) {
-                                                            "مغص" -> "للـ مغص: تدليك أسفل الظهر بزيت اللافندر الدافئ."
-                                                            "إرهاق" -> "للـ إرهاق: النوم لـ 8 ساعات وتجنب السهر والإجهاد البدني."
-                                                            "صداع" -> "للـ صداع: الابتعاد عن الشاشات والترطيب المستمر بشرب الماء."
-                                                            "تقلب مزاجي" -> "للـ تقلب المزاجي: ممارسة تمارين تنفس واسترخاء خفيفة لزيادة هرمونات السعادة."
-                                                            "ألم ظهر" -> "للـ ألم الظهر: الحفاظ على وضعية جلوس مستقيمة وتجنب حمل الأثقال."
-                                                            else -> "الراحة والترطيب الدائم."
-                                                        }
-                                                    }.joinToString("\n")
-                                                    Text(
-                                                        text = advice,
-                                                        color = SoftTheme.SoftGray,
-                                                        style = MaterialTheme.typography.bodySmall
-                                                    )
-                                                }
-                                            }
-                                        }
-
-                                        // Smart pregnancy prediction advice
-                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            Text("✨", fontSize = 18.sp)
-                                            Column {
-                                                Text("التنبؤ الذكي بالخصوبة القادمة:", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite, style = MaterialTheme.typography.bodyMedium)
-                                                Text(
-                                                    text = "بناءً على طول دورتك المعتاد (${formatArabicDays(avgCycle)})، فإن فرصة الحمل العالية وتاريخ الإباضة القادم سيكون تقريباً في اليوم 14 من بداية دورتك القادمة. يمكنكِ التخطيط لذلكِ بسهولة بالنظر إلى النقط الخضراء في التقويم أدناه.",
-                                                    color = SoftTheme.SoftGray,
-                                                    style = MaterialTheme.typography.bodySmall
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            } else {
-                                // Mini summary preview when collapsed
-                                Text(
-                                    text = if (periodLogs.isEmpty()) {
-                                        "قومي بتسجيل دورتكِ الشهرية الأولى لبدء التحليل الصحي التلقائي."
-                                    } else {
-                                        val latestPain = periodLogs.maxByOrNull { it.startDate }?.painLevel ?: 5
-                                        if (latestPain >= 7) {
-                                            "مستويات الألم الأخيرة مرتفعة نسبياً (${latestPain}/10). انقري لعرض التوصيات الصحية والغذائية المخصصة لراحة جسدك."
-                                        } else {
-                                            "تحليل: دورتكِ منتظمة بمتوسط ${formatArabicDays(avgCycle)} وصحتك تبدو متوازنة. انقري لعرض التفاصيل الكاملة."
-                                        }
-                                    },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = SoftTheme.SoftGray
-                                )
-                            }
-                        }
-                    }
+                    PeriodHealthAdvisoryCard(
+                        periodLogs = periodLogs,
+                        stats = stats
+                    )
                 }
 
                 item {
@@ -1074,1008 +572,122 @@ fun PeriodTrackerScreen(
                 }
             }
 
-                // Smart Interactive Calendar Component
-                item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .animateContentSize(),
-                        colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                        shape = RoundedCornerShape(24.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { isCalendarExpanded = !isCalendarExpanded },
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Text("📅", fontSize = 24.sp)
-                                    Column {
-                                        Text(
-                                            text = "تقويم الدورة والخصوبة التفاعلي",
-                                            fontWeight = FontWeight.Bold,
-                                            color = SoftTheme.TextWhite,
-                                            style = MaterialTheme.typography.titleMedium
-                                        )
-                                        Text(
-                                            text = "توقعات الإباضة والخصوبة والحيض",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = SoftTheme.SoftGray
-                                        )
-                                    }
-                                }
-                                Text(
-                                    text = if (isCalendarExpanded) "إخفاء 🔼" else "عرض التقويم 🔽",
-                                    color = SoftTheme.SoftPink,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-
-                            if (isCalendarExpanded) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                HorizontalDivider(color = SoftTheme.DeepSlate.copy(alpha = 0.5f))
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                // Month selector row
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    IconButton(onClick = {
-                                        currentMonthCalendar.add(Calendar.MONTH, -1)
-                                        monthUpdateTrigger++
-                                    }) {
-                                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "السابق", tint = SoftTheme.SoftPink)
-                                    }
-
-                                val monthNames = listOf("يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر")
-                                Text(
-                                    text = "${monthNames[currentMonthCalendar.get(Calendar.MONTH)]} ${currentMonthCalendar.get(Calendar.YEAR)}",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = SoftTheme.TextWhite
-                                )
-
-                                IconButton(onClick = {
-                                    currentMonthCalendar.add(Calendar.MONTH, 1)
-                                    monthUpdateTrigger++
-                                }) {
-                                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "التالي", tint = SoftTheme.SoftPink)
-                                }
-                            }
-
-                            // Days of week row
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                val weekdays = listOf("أحد", "اثنين", "ثلاثاء", "أربعاء", "خميس", "جمعة", "سبت")
-                                weekdays.forEach { day ->
-                                    Text(
-                                        text = day,
-                                        modifier = Modifier.weight(1f),
-                                        textAlign = TextAlign.Center,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = SoftTheme.SoftGray,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-
-                            // Days grid
-                            val dummyDays = remember(monthUpdateTrigger) {
-                                val list = mutableListOf<Long?>()
-                                val tempCal = currentMonthCalendar.clone() as Calendar
-                                tempCal.set(Calendar.DAY_OF_MONTH, 1)
-                                val firstDayOfWeek = tempCal.get(Calendar.DAY_OF_WEEK) // 1 = Sunday
-
-                                repeat(firstDayOfWeek - 1) {
-                                    list.add(null)
-                                }
-
-                                val maxDays = tempCal.getActualMaximum(Calendar.DAY_OF_MONTH)
-                                repeat(maxDays) { idx ->
-                                    tempCal.set(Calendar.DAY_OF_MONTH, idx + 1)
-                                    list.add(tempCal.timeInMillis)
-                                }
-                                list
-                            }
-
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                val chunked = dummyDays.chunked(7)
-                                chunked.forEach { rowDays ->
-                                    Row(modifier = Modifier.fillMaxWidth()) {
-                                        rowDays.forEach { dayTime ->
-                                            if (dayTime == null) {
-                                                Spacer(modifier = Modifier.weight(1f))
-                                            } else {
-                                                val dayCal = Calendar.getInstance().apply { timeInMillis = dayTime }
-                                                val dayNum = dayCal.get(Calendar.DAY_OF_MONTH)
-
-                                                // Determine highlighting (actual period logs)
-                                                val isPeriod = periodLogs.any { log ->
-                                                    val end = log.endDate ?: (log.startDate + 5L * 24 * 60 * 60 * 1000)
-                                                    dayTime >= log.startDate && dayTime <= end
-                                                }
-
-                                                // Smart predictions indicators
-                                                val isPredictedPeriod = (isPregnant == null || isPregnant?.isPregnant != true) && !isPeriod && predictedPeriods.any { (start, end) ->
-                                                    dayTime >= start && dayTime <= end
-                                                }
-                                                val isPregnancyDay = allPregnancies.any { preg ->
-                                                    val start = preg.lastPeriodDate
-                                                    val end = if (preg.isDelivered && preg.birthDate != null) {
-                                                        preg.birthDate
-                                                    } else {
-                                                        preg.dueDate ?: (start?.let { it + 280L * 24 * 60 * 60 * 1000 })
-                                                    }
-                                                    if (start != null && end != null) {
-                                                        val startCal = Calendar.getInstance().apply { timeInMillis = start; set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }
-                                                        val endCal = Calendar.getInstance().apply { timeInMillis = end; set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59); set(Calendar.SECOND, 59); set(Calendar.MILLISECOND, 999) }
-                                                        dayTime >= startCal.timeInMillis && dayTime <= endCal.timeInMillis
-                                                    } else false
-                                                }
-
-                                                val isNifasDay = !isPregnancyDay && allPregnancies.any { preg ->
-                                                    if (preg.isDelivered && preg.birthDate != null) {
-                                                        val nifasStartCal = Calendar.getInstance().apply { timeInMillis = preg.birthDate; set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }
-                                                        val nifasEndCal = Calendar.getInstance().apply { timeInMillis = preg.birthDate + (nifasDurationDays * 24L * 60 * 60 * 1000); set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59); set(Calendar.SECOND, 59); set(Calendar.MILLISECOND, 999) }
-                                                        dayTime >= nifasStartCal.timeInMillis && dayTime <= nifasEndCal.timeInMillis
-                                                    } else false
-                                                }
-
-                                                val isPredictedDevice = false
-                                                val isPredictedOvulation = (isPregnant == null || isPregnant?.isPregnant != true) && !isPeriod && !isPredictedPeriod && predictedOvulations.any { (start, end) ->
-                                                    dayTime >= start && dayTime <= end
-                                                }
-
-                                                val todayCal = Calendar.getInstance()
-                                                val isCurrent = todayCal.get(Calendar.YEAR) == dayCal.get(Calendar.YEAR) &&
-                                                                todayCal.get(Calendar.DAY_OF_YEAR) == dayCal.get(Calendar.DAY_OF_YEAR)
-
-                                                Box(
-                                                    modifier = Modifier
-                                                        .weight(1f)
-                                                        .aspectRatio(1f)
-                                                        .clip(CircleShape)
-                                                        .background(
-                                                            when {
-                                                                isPregnancyDay -> SoftTheme.PregnancyPurple
-                                                                isNifasDay -> SoftTheme.NifasRose
-                                                                isPeriod -> SoftTheme.DeepPink
-                                                                isPredictedPeriod -> SoftTheme.DeepPink.copy(alpha = 0.25f)
-                                                                isPredictedOvulation -> SoftTheme.MintTeal.copy(alpha = 0.25f)
-                                                                isCurrent -> SoftTheme.MintTeal
-                                                                else -> Color.Transparent
-                                                            }
-                                                        )
-                                                        .border(
-                                                            width = if (isCurrent && !isPeriod && !isPregnancyDay && !isNifasDay) 2.dp else if (isPredictedPeriod || isPredictedOvulation) 1.dp else 0.dp,
-                                                            color = if (isCurrent && !isPeriod && !isPregnancyDay && !isNifasDay) SoftTheme.MintTeal else if (isPredictedPeriod) SoftTheme.SoftPink else if (isPredictedOvulation) SoftTheme.MintTeal else Color.Transparent,
-                                                            shape = CircleShape
-                                                        )
-                                                        .clickable {
-                                                            // Day selected, smart autofill for previous cycle logs
-                                                            useCustomStartDate = dayTime
-                                                            useCustomEndDate = dayTime + 5L * 24 * 60 * 60 * 1000
-                                                            useSpecificDateRange = true
-                                                            showAddPeriodDialog = true
-                                                        },
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Text(
-                                                        text = "$dayNum",
-                                                        color = when {
-                                                            isPregnancyDay || isNifasDay -> Color.White
-                                                            isPeriod -> SoftTheme.DeepSlate
-                                                            isPredictedPeriod -> SoftTheme.SoftPink
-                                                            isPredictedOvulation -> SoftTheme.MintTeal
-                                                            else -> SoftTheme.TextWhite
-                                                        },
-                                                        fontWeight = if (isCurrent || isPeriod || isPregnancyDay || isNifasDay || isPredictedPeriod || isPredictedOvulation) FontWeight.Bold else FontWeight.Normal,
-                                                        fontSize = 14.sp
-                                                    )
-                                                }
-                                            }
-                                        }
-                                        // pad row if necessary
-                                        if (rowDays.size < 7) {
-                                            repeat(7 - rowDays.size) {
-                                                Spacer(modifier = Modifier.weight(1f))
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            // Color Legend for the Smart Calendar
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(SoftTheme.DeepPink))
-                                    Text("طمث", color = SoftTheme.SoftGray, fontSize = 9.sp)
-                                }
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(SoftTheme.PregnancyPurple))
-                                    Text("حمل 🤰", color = SoftTheme.SoftGray, fontSize = 9.sp)
-                                }
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(SoftTheme.NifasRose))
-                                    Text("نفاس 👶", color = SoftTheme.SoftGray, fontSize = 9.sp)
-                                }
-                                if (isPregnant == null || isPregnant?.isPregnant != true) {
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(SoftTheme.DeepPink.copy(alpha = 0.25f)))
-                                        Text("دورة متوقعة", color = SoftTheme.SoftGray, fontSize = 9.sp)
-                                    }
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(SoftTheme.MintTeal.copy(alpha = 0.25f)))
-                                        Text("إباضة متوقعة", color = SoftTheme.SoftGray, fontSize = 9.sp)
-                                    }
-                                }
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(SoftTheme.MintTeal))
-                                    Text("اليوم", color = SoftTheme.SoftGray, fontSize = 9.sp)
-                                }
-                            }
-                        }
+            // Smart Interactive Calendar Component
+            item {
+                PeriodCalendarSection(
+                    periodLogs = periodLogs,
+                    isPregnant = isPregnant,
+                    allPregnancies = allPregnancies,
+                    nifasDurationDays = nifasDurationDays,
+                    predictedPeriods = predictedPeriods,
+                    predictedOvulations = predictedOvulations,
+                    onDaySelected = { dayTime ->
+                        useCustomStartDate = dayTime
+                        useCustomEndDate = dayTime + 5L * 24 * 60 * 60 * 1000
+                        useSpecificDateRange = true
+                        showAddPeriodDialog = true
                     }
-                }
+                )
             }
 
-                // History List Header
-                item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { isHistoryExpanded = !isHistoryExpanded },
-                        colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                        shape = RoundedCornerShape(24.dp),
-                        border = BorderStroke(1.dp, SoftTheme.SoftPink.copy(alpha = 0.15f))
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("📖", fontSize = 24.sp)
-                                Column {
-                                    Text(
-                                        text = "السجل التاريخي للدورات",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = SoftTheme.TextWhite
-                                    )
-                                    Text(
-                                        text = "عرض وتعديل الدورات والتقلصات السابقة",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = SoftTheme.SoftGray
-                                    )
-                                }
-                            }
-                            Text(
-                                text = if (isHistoryExpanded) "إخفاء 🔼" else "عرض السجلات 🔽",
-                                color = SoftTheme.SoftPink,
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-
-                if (isHistoryExpanded) {
-                    if (periodLogs.isEmpty()) {
-                        item {
-                            Text(
-                                text = "لا توجد دورات مسجلة بعد. قومي بإضافة دورتك لبدء الحساب التلقائي والتحليل.",
-                                color = SoftTheme.SoftGray,
-                                style = MaterialTheme.typography.bodyMedium,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)
-                            )
-                        }
-                    } else {
-                        items(periodLogs) { log ->
-                            Card(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate.copy(alpha = 0.7f)),
-                                shape = RoundedCornerShape(16.dp),
-                                border = BorderStroke(0.5.dp, SoftTheme.SoftPink.copy(alpha = 0.1f))
-                            ) {
-                                Column(modifier = Modifier.padding(16.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column {
-                                            Text(
-                                                text = "البداية: ${formatGregorianDate(log.startDate)}",
-                                                fontWeight = FontWeight.Bold,
-                                                color = SoftTheme.TextWhite
-                                            )
-                                            log.endDate?.let {
-                                                Text(
-                                                    text = "النهاية: ${formatGregorianDate(it)}",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = SoftTheme.SoftGray
-                                                )
-                                            }
-                                        }
-
-                                        IconButton(onClick = { viewModel.deletePeriod(log) }) {
-                                            Icon(Icons.Default.Delete, contentDescription = "حذف", tint = SoftTheme.RedDanger)
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(SoftTheme.DeepSlate)
-                                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                                        ) {
-                                            Text(
-                                                text = "الشدة: ${if (log.flowIntensity == "heavy") "غزيرة" else if (log.flowIntensity == "medium") "متوسطة" else "خفيفة"}",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = SoftTheme.SoftPink
-                                            )
-                                        }
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(SoftTheme.DeepSlate)
-                                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                                        ) {
-                                            Text(
-                                                text = "الألم: ${log.painLevel}/10",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = SoftTheme.MintTeal
-                                            )
-                                        }
-                                        if (!log.notes.isNullOrBlank()) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(8.dp))
-                                                    .background(SoftTheme.DeepSlate)
-                                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                                            ) {
-                                                Text(
-                                                    text = "ملاحظات 📝",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = SoftTheme.LightPink
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+            // History List Section
+            item {
+                PeriodHistorySection(
+                    periodLogs = periodLogs,
+                    onDeleteLog = { log -> viewModel.deletePeriod(log) }
+                )
             }
+        }
+    }
 
-    // Add Period Dialog (Upgraded with past cycle & custom date range support)
+    // Add Period Dialog
     if (showAddPeriodDialog) {
-        Dialog(onDismissRequest = { showAddPeriodDialog = false }) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                shape = RoundedCornerShape(24.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .padding(20.dp)
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Text(
-                        text = "تسجيل الدورة الشهرية 🩸",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = SoftTheme.SoftPink
-                    )
-
-                    val context = LocalContext.current
-                    var selectStartToday by remember { mutableStateOf(true) }
-
-                    // Date Type Selectors (Now supporting highly custom past/previous ranges)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = {
-                                useSpecificDateRange = false
-                            },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (!useSpecificDateRange) SoftTheme.SoftPink else SoftTheme.DeepSlate,
-                                contentColor = if (!useSpecificDateRange) SoftTheme.DeepSlate else SoftTheme.TextWhite
-                            )
-                        ) {
-                            Text("اليوم/أمس", fontSize = 11.sp)
-                        }
-                        Button(
-                            onClick = {
-                                useSpecificDateRange = true
-                            },
-                            modifier = Modifier.weight(1.5f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (useSpecificDateRange) SoftTheme.SoftPink else SoftTheme.DeepSlate,
-                                contentColor = if (useSpecificDateRange) SoftTheme.DeepSlate else SoftTheme.TextWhite
-                            )
-                        ) {
-                            Text("تاريخ مخصص / سابق 📅", fontSize = 11.sp)
-                        }
-                    }
-
-                    if (useSpecificDateRange) {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("تاريخ البدء:", color = SoftTheme.TextWhite, style = MaterialTheme.typography.bodySmall)
-                            Button(
-                                onClick = {
-                                    val calendar = Calendar.getInstance().apply { timeInMillis = useCustomStartDate }
-                                    val d1 = android.app.DatePickerDialog(
-                                        context,
-                                        { _, y, m, d ->
-                                            val cal = Calendar.getInstance().apply {
-                                                set(Calendar.YEAR, y)
-                                                set(Calendar.MONTH, m)
-                                                set(Calendar.DAY_OF_MONTH, d)
-                                                set(Calendar.HOUR_OF_DAY, 0)
-                                                set(Calendar.MINUTE, 0)
-                                                set(Calendar.SECOND, 0)
-                                                set(Calendar.MILLISECOND, 0)
-                                            }
-                                            useCustomStartDate = cal.timeInMillis
-                                            // Automatically pre-fill expected end date (5 days later)
-                                            useCustomEndDate = cal.timeInMillis + 5L * 24 * 60 * 60 * 1000
-                                        },
-                                        calendar.get(Calendar.YEAR),
-                                        calendar.get(Calendar.MONTH),
-                                        calendar.get(Calendar.DAY_OF_MONTH)
-                                    )
-                                    d1.datePicker.maxDate = System.currentTimeMillis()
-                                    d1.show()
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.DeepSlate)
-                            ) {
-                                Text(formatGregorianDate(useCustomStartDate), color = SoftTheme.TextWhite)
-                            }
-
-                            Text("تاريخ الانتهاء:", color = SoftTheme.TextWhite, style = MaterialTheme.typography.bodySmall)
-                            Button(
-                                onClick = {
-                                    val calendar = Calendar.getInstance().apply { timeInMillis = useCustomEndDate }
-                                    val d2 = android.app.DatePickerDialog(
-                                        context,
-                                        { _, y, m, d ->
-                                            val cal = Calendar.getInstance().apply {
-                                                set(Calendar.YEAR, y)
-                                                set(Calendar.MONTH, m)
-                                                set(Calendar.DAY_OF_MONTH, d)
-                                                set(Calendar.HOUR_OF_DAY, 0)
-                                                set(Calendar.MINUTE, 0)
-                                                set(Calendar.SECOND, 0)
-                                                set(Calendar.MILLISECOND, 0)
-                                            }
-                                            useCustomEndDate = cal.timeInMillis
-                                        },
-                                        calendar.get(Calendar.YEAR),
-                                        calendar.get(Calendar.MONTH),
-                                        calendar.get(Calendar.DAY_OF_MONTH)
-                                    )
-                                    d2.datePicker.maxDate = System.currentTimeMillis()
-                                    d2.show()
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.DeepSlate)
-                            ) {
-                                Text(formatGregorianDate(useCustomEndDate), color = SoftTheme.TextWhite)
-                            }
-                        }
-                    } else {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Button(
-                                onClick = { selectStartToday = true },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (selectStartToday) SoftTheme.SoftPink else SoftTheme.DeepSlate,
-                                    contentColor = if (selectStartToday) SoftTheme.DeepSlate else SoftTheme.TextWhite
-                                )
-                            ) {
-                                Text("اليوم")
-                            }
-                            Button(
-                                onClick = { selectStartToday = false },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (!selectStartToday) SoftTheme.SoftPink else SoftTheme.DeepSlate,
-                                    contentColor = if (!selectStartToday) SoftTheme.DeepSlate else SoftTheme.TextWhite
-                                )
-                            ) {
-                                Text("أمس")
-                            }
-                        }
-                    }
-
-                    Text("غزارة الطمث:", color = SoftTheme.TextWhite)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        val intensities = listOf("light" to "خفيفة", "medium" to "متوسطة", "heavy" to "غزيرة")
-                        intensities.forEach { (key, label) ->
-                            val isSelected = selectedIntensity == key
-                            Button(
-                                onClick = { selectedIntensity = key },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (isSelected) SoftTheme.SoftPink else SoftTheme.DeepSlate,
-                                    contentColor = if (isSelected) SoftTheme.DeepSlate else SoftTheme.TextWhite
-                                )
-                            ) {
-                                Text(label, fontSize = 12.sp)
-                            }
-                        }
-                    }
-
-                    Text("مستوى الألم: $painLevel/10", color = SoftTheme.TextWhite)
-                    Slider(
-                        value = painLevel.toFloat(),
-                        onValueChange = { painLevel = it.toInt() },
-                        valueRange = 1f..10f,
-                        steps = 8,
-                        colors = SliderDefaults.colors(
-                            thumbColor = SoftTheme.SoftPink,
-                            activeTrackColor = SoftTheme.SoftPink,
-                            inactiveTrackColor = SoftTheme.DeepSlate
-                        )
-                    )
-
-                    Text("الأعراض المرافقة:", color = SoftTheme.TextWhite)
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        symptomsList.forEach { sym ->
-                            val isChecked = selectedSymptoms.contains(sym)
-                            FilterChip(
-                                selected = isChecked,
-                                onClick = {
-                                    if (isChecked) selectedSymptoms.remove(sym)
-                                    else selectedSymptoms.add(sym)
-                                },
-                                label = { Text(sym) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = SoftTheme.SoftPink,
-                                    selectedLabelColor = SoftTheme.DeepSlate
-                                )
-                            )
-                        }
-                    }
-
-                    OutlinedTextField(
-                        value = notesInput,
-                        onValueChange = { notesInput = it },
-                        label = { Text("ملاحظات خاصة...") },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = SoftTheme.SoftPink,
-                            unfocusedBorderColor = SoftTheme.SoftGray,
-                            focusedTextColor = SoftTheme.TextWhite,
-                            unfocusedTextColor = SoftTheme.TextWhite
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        TextButton(
-                            onClick = { showAddPeriodDialog = false },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("إلغاء", color = SoftTheme.SoftGray)
-                        }
-
-                        Button(
-                            onClick = {
-                                val start = if (useSpecificDateRange) {
-                                    useCustomStartDate
-                                } else {
-                                    if (selectStartToday) {
-                                        System.currentTimeMillis()
-                                    } else {
-                                        System.currentTimeMillis() - 24 * 60 * 60 * 1000
-                                    }
-                                }
-                                val end = if (useSpecificDateRange) {
-                                    useCustomEndDate
-                                } else {
-                                    start + 5L * 24 * 60 * 60 * 1000
-                                }
-                                viewModel.addPeriodLog(
-                                    startDate = start,
-                                    endDate = end,
-                                    intensity = selectedIntensity,
-                                    symptoms = selectedSymptoms.toList(),
-                                    painLevel = painLevel,
-                                    notes = notesInput
-                                )
-                                if (isPregnant != null && isPregnant?.isPregnant == true) {
-                                    pendingPeriodStartDate = start
-                                    showPregnancyLmpPromptDialog = true
-                                }
-                                showAddPeriodDialog = false
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("حفظ")
-                        }
-                    }
+        PeriodLogDialog(
+            initialStartDate = useCustomStartDate,
+            initialEndDate = useCustomEndDate,
+            useSpecificDateRangeInitial = useSpecificDateRange,
+            isPregnant = isPregnant?.isPregnant == true,
+            onSave = { start, end, intensity, symptoms, pain, notes ->
+                viewModel.addPeriodLog(
+                    startDate = start,
+                    endDate = end,
+                    intensity = intensity,
+                    symptoms = symptoms,
+                    painLevel = pain,
+                    notes = notes
+                )
+                if (isPregnant?.isPregnant == true) {
+                    pendingPeriodStartDate = start
+                    showPregnancyLmpPromptDialog = true
                 }
-            }
-        }
+                showAddPeriodDialog = false
+            },
+            onDismiss = { showAddPeriodDialog = false }
+        )
     }
 
-    // --- حوار تأكيد تاريخ دورة الحمل المكتشفة تلقائياً ---
-    if (showPregnancyLmpPromptDialog) {
-        pendingPeriodStartDate?.let { pendingDate ->
-            val dateStr = formatGregorianDate(pendingDate)
-            Dialog(onDismissRequest = { showPregnancyLmpPromptDialog = false }) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                shape = RoundedCornerShape(24.dp),
-                modifier = Modifier.fillMaxWidth().padding(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "تحديث حسابات الحمل 🌸🤰",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = SoftTheme.TextWhite,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = "صديقتي الغالية، نلاحظ أنكِ سجلتِ حالة حمل نشطة في التطبيق.\n\nهل الدورة التي سجلتِها الآن (والتي بدأت بتاريخ $dateStr) هي الدورة الشهرية الأخيرة التي حصل بعدها الحمل مباشرة؟\n\nإذا كانت الإجابة نعم، فسيقوم رفيقكِ الذكي بتعديل تاريخ الحمل وتاريخ الولادة المتوقع تلقائياً بناءً عليها لتكون جميع الإرشادات والمعلومات الطبية دقيقة تماماً 💖",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = SoftTheme.SoftGray,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 22.sp
-                    )
-                    
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Button(
-                            onClick = {
-                                isPregnant?.let { preg ->
-                                    viewModel.setPregnancy(pendingPeriodStartDate, preg.prePregnancyWeight, preg.heightCm)
-                                }
-                                showPregnancyLmpPromptDialog = false
-                                pendingPeriodStartDate = null
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text("نعم، دورة الحمل 👶", color = SoftTheme.TextWhite, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                        }
-
-                        Button(
-                            onClick = {
-                                showPregnancyLmpPromptDialog = false
-                                pendingPeriodStartDate = null
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.DeepSlate),
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text("لا، تسجيل عادي 📝", color = SoftTheme.SoftGray, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                        }
-                    }
+    // Pregnancy Dialogs
+    if (showPregnancyLmpPromptDialog && pendingPeriodStartDate != null) {
+        PregnancyLmpPromptDialog(
+            pendingPeriodStartDate = pendingPeriodStartDate,
+            pregnancyInfo = isPregnant,
+            onConfirmLmp = { startDate ->
+                isPregnant?.let { preg ->
+                    viewModel.setPregnancy(startDate, preg.prePregnancyWeight, preg.heightCm)
                 }
+                showPregnancyLmpPromptDialog = false
+                pendingPeriodStartDate = null
+            },
+            onDismiss = {
+                showPregnancyLmpPromptDialog = false
+                pendingPeriodStartDate = null
             }
-        }
-        }
+        )
     }
 
-    // +++ حوار تعديل جنس واسم الجنين داخل صفحة الحمل +++
     if (showBabyInfoDialog) {
-        Dialog(onDismissRequest = { showBabyInfoDialog = false }) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                shape = RoundedCornerShape(24.dp),
-                modifier = Modifier.fillMaxWidth().padding(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "تسجيل جنس واسم الجنين 👶🍼",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = SoftTheme.TextWhite,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = "شاركينا جنس واسم جنينكِ لنخصص التوجيهات باسمه العذب وندخل البهجة على رحلتكما 💖",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = SoftTheme.SoftGray,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 16.sp
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        listOf("ولد", "بنت", "مفاجأة").forEach { gender ->
-                            val isSelected = babyGenderInput == gender
-                            Button(
-                                onClick = { babyGenderInput = gender },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (isSelected) SoftTheme.SoftPink else SoftTheme.DeepSlate
-                                ),
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text(
-                                    text = when (gender) {
-                                        "ولد" -> "ولد 💙"
-                                        "بنت" -> "بنت 💗"
-                                        else -> "مفاجأة 🤫"
-                                    },
-                                    color = if (isSelected) Color.White else SoftTheme.SoftGray,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-
-                    OutlinedTextField(
-                        value = babyNameInput,
-                        onValueChange = { babyNameInput = it },
-                        label = { Text("الاسم المقترح لجنينكِ العذب:") },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = SoftTheme.SoftPink,
-                            unfocusedBorderColor = SoftTheme.SoftGray,
-                            focusedTextColor = SoftTheme.TextWhite,
-                            unfocusedTextColor = SoftTheme.TextWhite
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        TextButton(
-                            onClick = { showBabyInfoDialog = false },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("إلغاء", color = SoftTheme.SoftGray)
-                        }
-
-                        Button(
-                            onClick = {
-                                viewModel.updateBabyInfo(babyGenderInput.ifEmpty { null }, babyNameInput.ifEmpty { null })
-                                showBabyInfoDialog = false
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("حفظ")
-                        }
-                    }
-                }
-            }
-        }
+        BabyInfoDialog(
+            initialGender = babyGenderInput,
+            initialName = babyNameInput,
+            onSave = { gender, name ->
+                viewModel.updateBabyInfo(gender, name)
+                showBabyInfoDialog = false
+            },
+            onDismiss = { showBabyInfoDialog = false }
+        )
     }
 
-    // +++ حوار مباركة الولادة وتحديد طريقتها داخل صفحة الحمل +++
     if (showDeliveryDialog) {
-        Dialog(onDismissRequest = { showDeliveryDialog = false }) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                shape = RoundedCornerShape(24.dp),
-                modifier = Modifier.fillMaxWidth().padding(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "مبارك مبارك يا غالية! 🥳💖👶",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = SoftTheme.TextWhite,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = "ألف الحمد لله على سلامتكِ وسلامة مولودكِ الحبيب، جعله الله ذريّة صالحة بارّة قرّة لعينيكِ.\n\nكيف كانت ولادتكِ الميمونة لكي يقدم لكِ رفيقكِ جوري أهم إرشادات التعافي والنفاس المخصصة لكِ؟",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = SoftTheme.SoftGray,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 18.sp
-                    )
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Button(
-                            onClick = {
-                                viewModel.updateDeliveryInfo(isDelivered = true, birthMethod = "طبيعي")
-                                showDeliveryDialog = false
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text("ولادة طبيعية 🌸", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                        }
-
-                        Button(
-                            onClick = {
-                                viewModel.updateDeliveryInfo(isDelivered = true, birthMethod = "قيصري")
-                                showDeliveryDialog = false
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.DeepSlate),
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text("ولادة قيصرية 🏥", color = SoftTheme.SoftPink, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                        }
-                    }
-                }
-            }
-        }
+        DeliveryDialog(
+            onConfirmDelivery = { method ->
+                viewModel.updateDeliveryInfo(isDelivered = true, birthMethod = method)
+                showDeliveryDialog = false
+            },
+            onDismiss = { showDeliveryDialog = false }
+        )
     }
 
-    // +++ حوار تأكيد إنهاء الحمل ومعرفة السبب +++
     if (showEndPregnancyConfirmDialog) {
-        Dialog(onDismissRequest = { showEndPregnancyConfirmDialog = false }) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                shape = RoundedCornerShape(24.dp),
-                modifier = Modifier.fillMaxWidth().padding(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "تأكيد إنهاء الحمل الحالي 🤰💔",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = SoftTheme.TextWhite,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = "هل أنتِ متأكدة من رغبتكِ في إنهاء تتبع الحمل الحالي والعودة إلى تتبع الدورة الشهرية والخصوبة؟\n\nيرجى تحديد سبب إنهاء الحمل لنتمكن من توجيهكِ وتقديم الدعم المناسب لكِ:",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = SoftTheme.SoftGray,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 18.sp
-                    )
-
-                    Button(
-                        onClick = {
-                            showEndPregnancyConfirmDialog = false
-                            showDeliveryDialog = true
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("الحمد لله، تمّت الولادة بسلام 🎉👶", color = Color.White, fontWeight = FontWeight.Bold)
-                    }
-
-                    Button(
-                        onClick = {
-                            showEndPregnancyConfirmDialog = false
-                            showLossSupportDialog = true
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.DeepSlate),
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("حدثت مشكلة أو فقدان للحمل لا قدر الله 🤍", color = SoftTheme.SoftPink, fontWeight = FontWeight.Bold)
-                    }
-
-                    TextButton(
-                        onClick = { showEndPregnancyConfirmDialog = false },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("تراجع وإلغاء 🌸", color = SoftTheme.SoftGray)
-                    }
-                }
-            }
-        }
+        EndPregnancyConfirmDialog(
+            onOpenDelivery = {
+                showEndPregnancyConfirmDialog = false
+                showDeliveryDialog = true
+            },
+            onOpenLossSupport = {
+                showEndPregnancyConfirmDialog = false
+                showLossSupportDialog = true
+            },
+            onDismiss = { showEndPregnancyConfirmDialog = false }
+        )
     }
 
-    // +++ حوار المواساة والدعم في حالة الفقدان +++
     if (showLossSupportDialog) {
-        Dialog(onDismissRequest = { showLossSupportDialog = false }) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                shape = RoundedCornerShape(24.dp),
-                modifier = Modifier.fillMaxWidth().padding(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "عوضكِ الله خيراً يا حبيبتي 🤍",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = SoftTheme.SoftPink,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = "﴿وَبَشِّرِ الصَّابِرِينَ﴾\n\nسلامة قلبكِ وجسدكِ يا غالية. لا تحزني ولا تفقدي الأمل، فالله لطيف خبير ورحيم، وعوضه جميل دائماً.\n\nنحن هنا بجانبكِ دوماً لتقديم كل الحب والدعم. سنقوم الآن بإعادة ضبط التطبيق لتتبع الدورة الشهرية والراحة لمساعدتكِ على التعافي الهادئ خطوة بخطوة.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = SoftTheme.TextWhite,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 18.sp
-                    )
-
-                    Button(
-                        onClick = {
-                            showLossSupportDialog = false
-                            viewModel.switchToPeriodTracking()
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("الحمد لله على كل حال (العودة للدورة)", color = Color.White, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
+        PregnancyLossDialog(
+            onConfirmResetToPeriod = {
+                showLossSupportDialog = false
+                viewModel.switchToPeriodTracking()
+            },
+            onDismiss = { showLossSupportDialog = false }
+        )
     }
-}
 }

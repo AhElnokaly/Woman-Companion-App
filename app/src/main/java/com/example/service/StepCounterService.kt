@@ -26,6 +26,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -42,6 +44,11 @@ class StepCounterService : Service() {
     private var sensorManager: SensorManager? = null
     private var stepSensor: Sensor? = null
     private var todaySteps = 0
+
+    // Debouncing & Throttling to save battery and avoid IPC notification flooding
+    private var pendingPersistJob: Job? = null
+    private var lastNotificationTime = 0L
+    private var lastNotifiedSteps = 0
 
     // Shared preferences key for robust step counting persistence
     private val PREFS_NAME = "woman_companion_prefs"
@@ -178,7 +185,22 @@ class StepCounterService : Service() {
         }
     }
 
-    private fun saveTodaySteps(steps: Int) {
+    private fun saveTodaySteps(steps: Int, forceImmediate: Boolean = false) {
+        if (forceImmediate) {
+            pendingPersistJob?.cancel()
+            persistStepsToDb(steps)
+            return
+        }
+
+        // Debounce database writing (persisting every 5 seconds or on major batch) to protect battery and flash wear
+        pendingPersistJob?.cancel()
+        pendingPersistJob = serviceScope.launch {
+            delay(5000)
+            persistStepsToDb(steps)
+        }
+    }
+
+    private fun persistStepsToDb(steps: Int) {
         serviceScope.launch {
             stepsMutex.withLock {
                 val today = getStartOfDay()
@@ -192,7 +214,7 @@ class StepCounterService : Service() {
                 } else {
                     dao.insertStepLog(StepLog(date = today, steps = steps, targetSteps = target))
                 }
-                updateNotification()
+                updateNotificationThrottled(steps)
             }
         }
     }
@@ -203,7 +225,8 @@ class StepCounterService : Service() {
             todaySteps += stepsToAdd
             todaySteps
         }
-        saveTodaySteps(finalSteps)
+        updateNotificationThrottled(finalSteps)
+        saveTodaySteps(finalSteps, forceImmediate = false)
     }
 
     private fun initializeSensors() {
@@ -266,9 +289,20 @@ class StepCounterService : Service() {
             .build()
     }
 
-    private fun updateNotification() {
+    private fun updateNotification(force: Boolean = false) {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.notify(NOTIFICATION_ID, getNotification(todaySteps))
+        val steps = synchronized(this) { todaySteps }
+        lastNotifiedSteps = steps
+        lastNotificationTime = System.currentTimeMillis()
+        manager.notify(NOTIFICATION_ID, getNotification(steps))
+    }
+
+    private fun updateNotificationThrottled(steps: Int) {
+        val now = System.currentTimeMillis()
+        // Throttle IPC notification updates: update if at least 15 seconds passed OR at least 25 steps taken
+        if (now - lastNotificationTime > 15_000L || Math.abs(steps - lastNotifiedSteps) >= 25) {
+            updateNotification(force = true)
+        }
     }
 
     private fun getStartOfDay(timestamp: Long = System.currentTimeMillis()): Long {
@@ -288,6 +322,8 @@ class StepCounterService : Service() {
         } catch (e: Exception) {
             Log.e("StepCounterService", "Failed to unregister step listener", e)
         }
+        val currentSteps = synchronized(this) { todaySteps }
+        saveTodaySteps(currentSteps, forceImmediate = true)
         serviceScope.cancel()
     }
 }

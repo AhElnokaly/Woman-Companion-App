@@ -31,6 +31,7 @@ object GitHubSyncRepository {
     }
 
     suspend fun syncJouriMatrixFromServer(rawJsonUrl: String): String? = withContext(Dispatchers.IO) {
+        var connection: HttpURLConnection? = null
         try {
             if (!isValidSyncUrl(rawJsonUrl)) {
                 com.example.util.AppLogger.w("GitHubSyncRepository", "Rejected URL outside allowed HTTPS hosts: $rawJsonUrl")
@@ -38,7 +39,7 @@ object GitHubSyncRepository {
             }
 
             val url = URL(rawJsonUrl.trim())
-            val connection = (url.openConnection() as HttpURLConnection).apply {
+            connection = (url.openConnection() as HttpURLConnection).apply {
                 connectTimeout = TIMEOUT_MILLIS
                 readTimeout = TIMEOUT_MILLIS
                 instanceFollowRedirects = false
@@ -53,22 +54,22 @@ object GitHubSyncRepository {
                 return@withContext null
             }
 
-            val inputStream = connection.inputStream
-            val buffer = ByteArray(4096)
-            var bytesRead: Int
-            var totalRead = 0
-            val outputStream = java.io.ByteArrayOutputStream()
+            val responseString = connection.inputStream.use { inputStream ->
+                val buffer = ByteArray(4096)
+                var bytesRead: Int
+                var totalRead = 0
+                val outputStream = java.io.ByteArrayOutputStream()
 
-            while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                totalRead += bytesRead
-                if (totalRead > MAX_RESPONSE_BYTES) {
-                    com.example.util.AppLogger.w("GitHubSyncRepository", "Response exceeded max size limit of $MAX_RESPONSE_BYTES bytes")
-                    return@withContext null
+                while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                    totalRead += bytesRead
+                    if (totalRead > MAX_RESPONSE_BYTES) {
+                        com.example.util.AppLogger.w("GitHubSyncRepository", "Response exceeded max size limit of $MAX_RESPONSE_BYTES bytes")
+                        return@withContext null
+                    }
+                    outputStream.write(buffer, 0, bytesRead)
                 }
-                outputStream.write(buffer, 0, bytesRead)
+                outputStream.toString(Charsets.UTF_8.name())
             }
-
-            val responseString = outputStream.toString(Charsets.UTF_8.name())
             
             // Validate that content is a valid JSON structure (Object or Array)
             val isJson = try {
@@ -95,6 +96,12 @@ object GitHubSyncRepository {
         } catch (e: Exception) {
             com.example.util.AppLogger.w("GitHubSyncRepository", "Failed to sync Jouri matrix from server", e)
             null
+        } finally {
+            try {
+                connection?.disconnect()
+            } catch (e: Exception) {
+                // Ignore disconnect errors
+            }
         }
     }
 }

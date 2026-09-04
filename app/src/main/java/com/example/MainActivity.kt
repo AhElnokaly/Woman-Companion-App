@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -38,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.AppDatabase
 import com.example.data.WomanCompanionRepository
 import com.example.ui.*
+import com.example.ui.companion.*
 import com.example.ui.theme.MyApplicationTheme
 import com.example.viewmodel.WomanCompanionViewModel
 import com.example.viewmodel.WomanCompanionViewModelFactory
@@ -371,7 +373,7 @@ class MainActivity : ComponentActivity() {
                                         val generalTools = listOf(
                                             Triple("🌙 مراقب ومحلل النوم", "sleep_analyzer", Icons.Default.Notifications),
                                             Triple("📦 مؤونتي الذكية والمطبخ", "maonaty", Icons.Default.Home),
-                                            Triple("📦 الصيدلية المنزلية المتقدمة", "home_pharmacy", Icons.Default.List),
+                                            Triple("📦 الصيدلية المنزلية المتقدمة", "home_pharmacy", Icons.AutoMirrored.Filled.List),
                                             Triple("🔗 مزامنة الرفيق والزوج", "partner_sync", Icons.Default.Share),
                                             Triple("✍️ مذكراتي واليوميات الجميلة", "journal", Icons.Default.Edit)
                                         )

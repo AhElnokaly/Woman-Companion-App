@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.FetalGrowthLog
 import com.example.data.PregnancyEntity
+import com.example.ui.fetal.StartNewPregnancyDialog
 import com.example.viewmodel.WomanCompanionViewModel
 import java.text.SimpleDateFormat
 import java.util.*
@@ -41,7 +42,7 @@ fun PregnancyHistoryScreen(
     val allLogs by viewModel.allFetalGrowthLogsState.collectAsStateWithLifecycle()
     var showStartDialog by remember { mutableStateOf(false) }
     var expandedPregnancyId by remember { mutableStateOf<Int?>(null) }
-    val dateFormatter = remember { SimpleDateFormat("yyyy/MM/dd", Locale("ar")) }
+    val dateFormatter = remember { SimpleDateFormat("yyyy/MM/dd", Locale.forLanguageTag("ar")) }
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         Scaffold(

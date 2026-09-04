@@ -2,10 +2,6 @@ package com.example.viewmodel
 
 import android.app.Application
 import android.content.Context
-import android.hardware.Sensor
-import android.hardware.SensorEvent
-import android.hardware.SensorEventListener
-import android.hardware.SensorManager
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
@@ -179,6 +175,7 @@ class WomanCompanionViewModel(
     }
 
     private val connectivityManager = application.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
     
     private val _isNetworkAvailable = MutableStateFlow(false)
     val isNetworkAvailable: StateFlow<Boolean> = _isNetworkAvailable.asStateFlow()
@@ -376,49 +373,6 @@ class WomanCompanionViewModel(
     private val _isLocked = MutableStateFlow(false)
     val isLocked: StateFlow<Boolean> = _isLocked.asStateFlow()
 
-    private var sensorManager: SensorManager? = null
-    private var stepSensor: Sensor? = null
-    private var initialStepsInSensor: Int = -1
-    private var lastAccelerometerStepTime: Long = 0L
-
-    private val stepListener = object : SensorEventListener {
-        override fun onSensorChanged(event: SensorEvent?) {
-            if (event == null) return
-            when (event.sensor.type) {
-                Sensor.TYPE_STEP_COUNTER -> {
-                    val totalSteps = event.values[0].toInt()
-                    if (initialStepsInSensor == -1) {
-                        initialStepsInSensor = totalSteps
-                    } else {
-                        val newSteps = totalSteps - initialStepsInSensor
-                        if (newSteps > 0) {
-                            addSteps(newSteps)
-                            initialStepsInSensor = totalSteps
-                        }
-                    }
-                }
-                Sensor.TYPE_STEP_DETECTOR -> {
-                    if (event.values[0] == 1.0f) {
-                        addSteps(1)
-                    }
-                }
-                Sensor.TYPE_ACCELEROMETER -> {
-                    val x = event.values[0]
-                    val y = event.values[1]
-                    val z = event.values[2]
-                    val magnitude = Math.sqrt((x * x + y * y + z * z).toDouble())
-                    val currentTime = System.currentTimeMillis()
-                    // Detect movement peak: exceeds 12.5 m/s^2, debounced by 350ms
-                    if (magnitude > 12.5 && (currentTime - lastAccelerometerStepTime) > 350) {
-                        addSteps(1)
-                        lastAccelerometerStepTime = currentTime
-                    }
-                }
-            }
-        }
-        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
-    }
-
     fun reinitializeSensors() {
         Log.d("ViewModel", "Sensors are managed by StepCounterService foreground service.")
     }
@@ -511,14 +465,16 @@ class WomanCompanionViewModel(
             val request = NetworkRequest.Builder()
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
                 .build()
-            connectivityManager.registerNetworkCallback(request, object : ConnectivityManager.NetworkCallback() {
+            val callback = object : ConnectivityManager.NetworkCallback() {
                 override fun onAvailable(network: Network) {
                     _isNetworkAvailable.value = true
                 }
                 override fun onLost(network: Network) {
                     _isNetworkAvailable.value = false
                 }
-            })
+            }
+            networkCallback = callback
+            connectivityManager.registerNetworkCallback(request, callback)
             // Initial value
             val activeNetwork = connectivityManager.activeNetwork
             val caps = connectivityManager.getNetworkCapabilities(activeNetwork)
@@ -531,10 +487,6 @@ class WomanCompanionViewModel(
         refreshWeather()
         // Check for updates on GitHub on launch
         checkForGitHubUpdates()
-    }
-
-    override fun onCleared() {
-        super.onCleared()
     }
 
     fun refreshWeather(lat: Double = 30.0444, lon: Double = 31.2357) {
@@ -868,7 +820,7 @@ class WomanCompanionViewModel(
             
             repository.savePregnancy(
                 PregnancyEntity(
-                    id = 1,
+                    id = existing?.id ?: 0,
                     motherName = name,
                     nickname = nickname,
                     birthDate = birthDate,
@@ -1735,6 +1687,17 @@ class WomanCompanionViewModel(
         _isWaterReminderEnabled.value = enabled
         sharedPrefs.edit().putBoolean("water_reminders_enabled", enabled).apply()
         ReminderScheduler.scheduleDaytimeWaterReminders(getApplication(), enabled)
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        try {
+            networkCallback?.let {
+                connectivityManager.unregisterNetworkCallback(it)
+            }
+        } catch (e: Exception) {
+            Log.e("WomanCompanionVM", "Failed to unregister network callback", e)
+        }
     }
 }
 

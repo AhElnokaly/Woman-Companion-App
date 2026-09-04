@@ -132,3 +132,18 @@ object AppLayers {
         return if (isDark) Primitives.VibrantRoseDark else Primitives.PassionRoseLight
     }
 }
+
+object SoftTheme {
+    val DeepSlate = Color(0xFF11151E)
+    val CardSlate = Color(0xFF1A1F2B)
+    val ElevatedSlate = Color(0xFF242C3C)
+    val SoftPink = Color(0xFFFA809F)
+    val DeepPink = Color(0xFFF0527F)
+    val LightPink = Color(0xFFFFB3C6)
+    val NifasRose = Color(0xFFFF8DA1)
+    val MintTeal = Color(0xFF00C0A5)
+    val TextWhite = Color(0xFFFFFFFF)
+    val SoftGray = Color(0xFF8E9AA7)
+    val RedDanger = Color(0xFFEF5350)
+    val PregnancyPurple = Color(0xFFBB86FC)
+}

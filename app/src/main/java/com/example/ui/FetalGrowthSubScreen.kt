@@ -1,134 +1,35 @@
 package com.example.ui
 
-import androidx.compose.animation.*
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.*
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.FetalGrowthLog
 import com.example.data.PregnancyEntity
+import com.example.ui.fetal.*
 import com.example.viewmodel.WomanCompanionViewModel
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 
-data class FetalStandard(
-    val week: Int,
-    val weightGrams: Double,
-    val lengthCm: Double,
-    val fruitComparison: String,
-    val description: String,
-    val icon: String = "🌱"
-)
-
-object FetalStandardData {
-    val standards = mapOf(
-        1 to FetalStandard(1, 0.1, 0.1, "تخصيب خلايا", "الجسم يستعد للملحمة المذهلة! ركّزي على حمض الفوليك والراحة.", "🧬"),
-        2 to FetalStandard(2, 0.1, 0.1, "تخصيب خلايا", "الجسم يستعد للملحمة المذهلة! ركّزي على حمض الفوليك والراحة.", "🧬"),
-        3 to FetalStandard(3, 0.1, 0.1, "تخصيب خلايا", "الجسم يستعد للملحمة المذهلة! ركّزي على حمض الفوليك والراحة.", "🧬"),
-        4 to FetalStandard(4, 0.1, 0.2, "بذرة خشخاش", "بدأت الخلايا بالانقسام لتشكيل الجنين والمشيمة الغنية.", "🪹"),
-        5 to FetalStandard(5, 0.2, 0.3, "بذرة سمسم", "يبدأ تشكل الأنبوب العصبي والقلب البدائي النابض.", "🪺"),
-        6 to FetalStandard(6, 0.4, 0.5, "حبة عدس", "ينبض القلب الصغير الآن بمعدل 150 نبضة في الدقيقة كمعجزة صغيرة.", "🫘"),
-        7 to FetalStandard(7, 0.8, 0.8, "حبة حمص", "تبدأ براعم الأطراف (اليدين والرجلين) في البروز والظهور بوضوح.", "🫘"),
-        8 to FetalStandard(8, 1.0, 1.6, "حبة توت", "تتكون ملامح الوجه البدائية وتبدأ الأصابع الدقيقة في التمايز والنمو.", "🫐"),
-        9 to FetalStandard(9, 2.0, 2.3, "حبة عنب", "يتحرك الجنين حركات خفيفة جداً ومبهجة في رحمكِ الدافئ.", "🍇"),
-        10 to FetalStandard(10, 4.0, 3.1, "حبة مشمش مجفف", "اكتمال تشكل معظم الأعضاء الحيوية الأساسية للطفل الصغير.", "🍑"),
-        11 to FetalStandard(11, 7.0, 4.1, "حبة تين", "تنمو الأظافر الصغيرة جداً ويبدأ الطفل ببلع السائل السلوي بلطف.", "🫓"),
-        12 to FetalStandard(12, 14.0, 5.4, "حبة ليمون بلدي", "يمكن الآن سماع نبضات قلب جنينكِ الدافئة والجميلة عبر السونار.", "🍋"),
-        13 to FetalStandard(13, 23.0, 7.4, "حبة خوخ", "أصابع الطفل تشكلت بالكامل وبصمات الأصابع الفريدة تبدأ بالظهور.", "🍑"),
-        14 to FetalStandard(14, 43.0, 8.7, "حبة ليمون أضاليا", "يبدأ طفلكِ في عمل تعابير بوجهه الجميل مثل العبوس والابتسام البسيط.", "🍋"),
-        15 to FetalStandard(15, 70.0, 10.1, "حبة تفاح صغير", "جلد الجنين رقيق جداً وشفاف وتظهر الأوعية الدموية من خلاله كالحرير.", "🍎"),
-        16 to FetalStandard(16, 100.0, 11.6, "حبة أفوكادو", "يمكنكِ الآن أحياناً البدء في الشعور بركلات خفيفة ورقيقة كالفراشات.", "🥑"),
-        17 to FetalStandard(17, 140.0, 13.0, "حبة رمان", "تبدأ الدهون الصحية بالتراكم التدريجي تحت جلد طفلكِ لتدفئته وحمايته.", "🍆"),
-        18 to FetalStandard(18, 190.0, 14.2, "حبة بطاطس", "يمكن لطفلكِ الآن سماع الأصوات الخارجية، وخاصةً صوت دقات قلبكِ وصوتكِ الدافئ.", "🥔"),
-        19 to FetalStandard(19, 240.0, 15.3, "حبة مانجو", "تتكون طبقة شمعية واقية (الطلاء الجنيني) لحماية جلد طفلكِ الحساس.", "🥭"),
-        20 to FetalStandard(20, 300.0, 25.6, "حبة موزة", "منتصف الرحلة المباركة! طول الطفل يقاس الآن من الرأس لكعب القدم بالكامل.", "🍌"),
-        21 to FetalStandard(21, 360.0, 26.7, "حبة جزر", "تبدأ حاسة التذوق في التطور، ويميز الطفل نكهات الأطعمة التي تتناولينها.", "🥕"),
-        22 to FetalStandard(22, 430.0, 27.8, "حبة جوز هند هندية", "تتطور الحواجب والأشفار بوضوح ويبدو كنسخة مصغرة من وليدكِ الجميل.", "🥥"),
-        23 to FetalStandard(23, 500.0, 28.9, "حبة باذنجان كبير", "الرئتان الصغيرتان تتطوران وتستعدان للتنفس الخارجي مستقبلاً بهمة.", "🍆"),
-        24 to FetalStandard(24, 600.0, 30.0, "حبة ذرة طازجة", "يتفاعل الطفل مع الأصوات واللمس الخارجي وتتكامل أنماط نومه ويقظته.", "🌽"),
-        25 to FetalStandard(25, 660.0, 34.6, "حبة قرنبيط", "يبدأ شعر رأس طفلكِ الناعم في النمو وتتضح ملامحه المبهجة أكثر.", "🥦"),
-        26 to FetalStandard(26, 760.0, 35.6, "حبة كابوتشا (خس)", "يستطيع طفلكِ الآن فتح وإغلاق عينيه اللطيفة والاستجابة للضوء المنعكس.", "🥬"),
-        27 to FetalStandard(27, 875.0, 36.6, "حبة شمام صغير", "تنضج شبكية العين ويقوى نشاط الدماغ والروابط العصبية الذكية باستمرار.", "🍈"),
-        28 to FetalStandard(28, 1000.0, 37.6, "حبة باذنجان رومي", "يزداد وزن الجنين بسرعة الآن، وتبلغ فرص نموه بأمان مستويات عالية بفضل الله.", "🍆"),
-        29 to FetalStandard(29, 1150.0, 38.6, "حبة أناناس", "تتطور العظام وتصبح أقوى، وتتراكم مستويات ممتازة من المعادن المفيدة.", "🍍"),
-        30 to FetalStandard(30, 1320.0, 39.9, "حبة ملفوف (كرنب)", "يبدأ طفلكِ في تجميع مخزون مذهل من الحديد والكالسيوم لنمو هيكله العظمي.", "🥬"),
-        31 to FetalStandard(31, 1500.0, 41.1, "حبة جوز هند كبيرة", "تكتمل كفاءة حواسه الخمسة ويبدأ مخه الصغير بالتحكم الفعلي في درجة حرارة جسمه.", "🥥"),
-        32 to FetalStandard(32, 1700.0, 42.4, "حبة يقطين صغير", "يستقر طفلكِ في وضعيات مريحة وتصبح ركلاته أكثر قوة وحركة بهيجة.", "🎃"),
-        33 to FetalStandard(33, 1900.0, 43.7, "حبة كرفس بلدي", "جهازه المناعي يستقبل الأجسام المضادة الدافئة منكِ لتوفير الحصانة الطبيعية.", "🌿"),
-        34 to FetalStandard(34, 2150.0, 45.0, "حبة شمام كبير", "تكتمل الرئتان بشكل كامل تقريباً ويصبح جهازه التنفسي قادراً على العمل بسلام.", "🍈"),
-        35 to FetalStandard(35, 2380.0, 46.2, "حبة بطيخ صغير", "يمتلئ جسمه بالدهون المفيدة، وتصبح أطرافه اللطيفة ممتلئة وناعمة كالحرير.", "🍉"),
-        36 to FetalStandard(36, 2600.0, 47.4, "سلة خضار دافئة", "يقترب الجنين من الوزن المثالي الكامل والجاهز للولادة الآمنة والسهلة.", "🧺"),
-        37 to FetalStandard(37, 2850.0, 48.6, "باقة ورد عطرة", "حملكِ الآن مكتمل تماماً! يبدأ طفلكِ بالاستعداد للنزول أسفل الحوض للولادة الميسرة.", "💐"),
-        38 to FetalStandard(38, 3100.0, 49.8, "حزمة سلق طازجة", "تكتمل وظائف الدماغ والأعضاء الحيوية، والطفل في شوق تام للقائكِ الدافئ.", "🌿"),
-        39 to FetalStandard(39, 3300.0, 50.7, "بطيخة ناضجة شهية", "يفرز جسم الطفل هرمونات طبيعية ممتازة لتحفيز مخاض الولادة في الوقت المناسب.", "🍉"),
-        40 to FetalStandard(40, 3450.0, 51.2, "باقة ياسمين دمشقي", "مبارك يا روحي! طفلكِ مكتمل تماماً ومستعد للخروج لينير حياتكِ بنوره الوضاء.", "🌸"),
-        41 to FetalStandard(41, 3600.0, 51.7, "جنين مبارك وناضج", "فترة ترقب جميلة، يتابع فيها الأطباء نشاط الجنين لضمان كمال راحته ونموه.", "👶"),
-        42 to FetalStandard(42, 3750.0, 52.5, "مولود السعادة والبركة", "اكتمال الرحلة الطبية المباركة، والأطباء مستعدون لمساعدتكِ باللقاء بأمان.", "👶")
-    )
-
-    fun getStandardForWeek(week: Int): FetalStandard {
-        val clamped = week.coerceIn(1, 42)
-        return standards[clamped] ?: FetalStandard(clamped, 1000.0, 35.0, "فاكهة طبيعية", "ينمو طفلكِ تدريجياً وبأمان تام.", "🌱")
-    }
-
-    fun calculateWeightDeviation(loggedWeek: Int, actualWeightGrams: Double): Double {
-        val stdWeight = getStandardForWeek(loggedWeek).weightGrams
-        if (stdWeight <= 0.0) return 0.0
-        return ((actualWeightGrams - stdWeight) / stdWeight) * 100.0
-    }
-
-    fun calculateLengthDeviation(loggedWeek: Int, actualLengthCm: Double): Double {
-        val stdLength = getStandardForWeek(loggedWeek).lengthCm
-        if (stdLength <= 0.0) return 0.0
-        return ((actualLengthCm - stdLength) / stdLength) * 100.0
-    }
-
-    fun getEstimatedWeightGrams(week: Int, deviationPercent: Double?): Double {
-        val stdWeight = getStandardForWeek(week).weightGrams
-        if (deviationPercent == null || deviationPercent == 0.0) return stdWeight
-        return stdWeight * (1.0 + deviationPercent / 100.0)
-    }
-
-    fun getEstimatedLengthCm(week: Int, deviationPercent: Double?): Double {
-        val stdLength = getStandardForWeek(week).lengthCm
-        if (deviationPercent == null || deviationPercent == 0.0) return stdLength
-        val res = stdLength * (1.0 + deviationPercent / 100.0)
-        return Math.round(res * 10.0) / 10.0
-    }
-
-    // تقدير الطول تلقائياً من الوزن المعطى (بالتناسب مع انحراف الأسبوع)
-    fun estimateLengthFromWeight(week: Int, actualWeightGrams: Double): Double {
-        val weightDev = calculateWeightDeviation(week, actualWeightGrams)
-        return getEstimatedLengthCm(week, weightDev)
-    }
-
-    // تقدير الوزن تلقائياً من الطول المعطى (بالتناسب مع انحراف الأسبوع)
-    fun estimateWeightFromLength(week: Int, actualLengthCm: Double): Double {
-        val lengthDev = calculateLengthDeviation(week, actualLengthCm)
-        return Math.round(getEstimatedWeightGrams(week, lengthDev)).toDouble()
-    }
-}
+// Backward-compatibility aliases so existing callers in the app remain unbroken
+typealias FetalStandard = com.example.ui.fetal.FetalStandard
+val FetalStandardData = com.example.ui.fetal.FetalStandardData
 
 @Composable
 fun FetalGrowthSubScreen(viewModel: WomanCompanionViewModel) {
@@ -146,20 +47,8 @@ fun FetalGrowthSubScreen(viewModel: WomanCompanionViewModel) {
     var showAddDialog by remember { mutableStateOf(false) }
     var showStartNewPregnancyDialog by remember { mutableStateOf(false) }
     var selectedWeek by remember { mutableStateOf(12) }
-    var weightInput by remember { mutableStateOf("") }
-    var lengthInput by remember { mutableStateOf("") }
-    var notesInput by remember { mutableStateOf("") }
-    var isErrorMsg by remember { mutableStateOf<String?>(null) }
 
-    val context = LocalContext.current
-    val dateFormatter = remember { SimpleDateFormat("dd MMMM yyyy", Locale("ar")) }
-
-    // Pre-populate input helpers when selectedWeek changes
-    LaunchedEffect(selectedWeek) {
-        val std = FetalStandardData.getStandardForWeek(selectedWeek)
-        weightInput = std.weightGrams.toInt().toString()
-        lengthInput = std.lengthCm.toString()
-    }
+    val dateFormatter = remember { SimpleDateFormat("dd MMMM yyyy", Locale.getDefault()) }
 
     LazyColumn(
         modifier = Modifier
@@ -242,261 +131,300 @@ fun FetalGrowthSubScreen(viewModel: WomanCompanionViewModel) {
             if (pregnancyProgression != null) {
                 val currentWeek = pregnancyProgression.weeks.coerceIn(1, 42)
                 val liveStandard = FetalStandardData.getStandardForWeek(currentWeek)
-                val weightDeviationPercent = viewModel.getWeightDeviationForCurrentPregnancy()
+                val weightDeviationPercent = viewModel.getWeightDeviationForCurrentPregnancy() ?: 0.0
                 val estimatedWeightGrams = FetalStandardData.getEstimatedWeightGrams(currentWeek, weightDeviationPercent)
                 Card(
                     colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
                     shape = RoundedCornerShape(24.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .testTag("live_fetal_growth_card")
+                        .testTag("live_fetal_current_week_card")
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(pregnancyProgression.comparisonIcon, fontSize = 28.sp)
                             Column {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(
+                                        text = "الأسبوع الحالي ($currentWeek) ⏳",
+                                        fontWeight = FontWeight.Bold,
+                                        color = SoftTheme.SoftPink,
+                                        fontSize = 16.sp
+                                    )
+                                    Text(
+                                        text = liveStandard.icon,
+                                        fontSize = 18.sp
+                                    )
+                                }
                                 Text(
-                                    text = "الحجم والتطور المتوقع لهذا الأسبوع (الأسبوع ${pregnancyProgression.weeks})",
-                                    fontWeight = FontWeight.Bold,
-                                    color = SoftTheme.SoftPink,
-                                    fontSize = 15.sp
-                                )
-                                Text(
-                                    text = "بناءً على تاريخ آخر دورة شهرية",
+                                    text = "التقدير الحي الذكي لحجم ووزن طفلكِ الآن",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = SoftTheme.SoftGray
                                 )
                             }
-                        }
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = SoftTheme.DeepSlate),
-                                shape = RoundedCornerShape(16.dp),
-                                modifier = Modifier.weight(1f)
+                            Box(
+                                modifier = Modifier
+                                    .background(SoftTheme.DeepSlate, RoundedCornerShape(12.dp))
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
                             ) {
-                                Column(
-                                    modifier = Modifier.padding(12.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Text("الوزن المتوقع ⚖️", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text("${estimatedWeightGrams.toInt()} جرام", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite, fontSize = 16.sp)
-                                    if (weightDeviationPercent != null && kotlin.math.abs(weightDeviationPercent) >= 0.1) {
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        Text("مخصص بناءً على آخر قياس", fontSize = 10.sp, color = SoftTheme.MintTeal, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                            }
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = SoftTheme.DeepSlate),
-                                shape = RoundedCornerShape(16.dp),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(12.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Text("الطول المتوقع 📏", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text("${liveStandard.lengthCm} سم", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite, fontSize = 16.sp)
-                                }
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(SoftTheme.DeepSlate, RoundedCornerShape(16.dp))
-                                .padding(12.dp)
-                        ) {
-                            Column {
                                 Text(
-                                    text = "مقارنة الحجم: طفلكِ الآن بحجم (${liveStandard.fruitComparison})",
+                                    text = liveStandard.fruitComparison,
                                     fontWeight = FontWeight.Bold,
                                     color = SoftTheme.TextWhite,
                                     fontSize = 13.sp
                                 )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = liveStandard.description,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = SoftTheme.SoftGray
-                                )
                             }
                         }
-                    }
-                }
-            } else {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                    shape = RoundedCornerShape(24.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text("👶 لم يتم تفعيل وضع الحمل بعد", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite, fontSize = 15.sp)
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "يمكنكِ تفعيل وضع الحمل وتحديد تاريخ آخر دورة من شاشة الإعدادات لمتابعة التطور الأسبوعي المباشر.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = SoftTheme.SoftGray,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            }
-        }
 
-        // 2. Interactive growth comparison chart
-        if (logs.isNotEmpty()) {
-            item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                    shape = RoundedCornerShape(24.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Text(
-                            text = "مُنحنى تطور نمو الجنين (الفعلي ضد المفترض) 📊",
-                            fontWeight = FontWeight.Bold,
-                            color = SoftTheme.TextWhite,
-                            fontSize = 16.sp
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "الخط الوردي يوضح القيمة القياسية، والنقاط البيضاء تعبر عن قياساتكِ الفعلية.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = SoftTheme.SoftGray
-                        )
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                        // Custom drawing of weight growth curve
-                        FetalGrowthChart(logs = activePregnancyLogs)
-                    }
-                }
-            }
-        }
-
-        // 3. Quick analysis card for the latest record
-        val latestLog = activePregnancyLogs.maxByOrNull { it.pregnancyWeek }
-        if (latestLog != null) {
-            val standard = FetalStandardData.getStandardForWeek(latestLog.pregnancyWeek)
-            
-            item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                    shape = RoundedCornerShape(24.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text("✨", fontSize = 20.sp)
-                            Text(
-                                text = "آخر قياس مسجّل: الأسبوع ${latestLog.pregnancyWeek}",
-                                fontWeight = FontWeight.Bold,
-                                color = SoftTheme.SoftPink,
-                                fontSize = 15.sp
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        val weightDiffPct = FetalStandardData.calculateWeightDeviation(latestLog.pregnancyWeek, latestLog.weightGrams)
-                        val lengthDiffPct = ((latestLog.lengthCm - standard.lengthCm) / standard.lengthCm) * 100.0
-
-                        val weightDeviationLabel = when {
-                            kotlin.math.abs(weightDiffPct) <= 3.0 -> "ضمن المعدل الطبيعي 🟢"
-                            weightDiffPct > 3.0 -> "وزن أعلى من المتوسط بـ ${weightDiffPct.toInt()}% 📈"
-                            else -> "وزن أقل من المتوسط بـ ${kotlin.math.abs(weightDiffPct).toInt()}% 📉"
-                        }
-
+                        // Live estimation metrics
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            // Weight Compare Card
                             Card(
                                 colors = CardDefaults.cardColors(containerColor = SoftTheme.DeepSlate),
                                 shape = RoundedCornerShape(16.dp),
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Column(
-                                    modifier = Modifier.padding(12.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Text("وزن الجنين ⚖️", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text("${latestLog.weightGrams.toInt()} جرام", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite, fontSize = 16.sp)
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text("الوزن التقديري الآن ⚖️", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = "المفترض: ${standard.weightGrams.toInt()} جرام",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = SoftTheme.SoftGray
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = weightDeviationLabel,
+                                        text = "${estimatedWeightGrams.toInt()} جرام",
                                         fontWeight = FontWeight.Bold,
-                                        color = if (kotlin.math.abs(weightDiffPct) <= 15.0) SoftTheme.MintTeal else if (weightDiffPct > 15.0) SoftTheme.SoftPink else SoftTheme.GoldFasting,
-                                        fontSize = 11.sp,
-                                        textAlign = TextAlign.Center
+                                        color = SoftTheme.MintTeal,
+                                        fontSize = 16.sp
                                     )
+                                    if (weightDeviationPercent != null && Math.abs(weightDeviationPercent) > 1.0) {
+                                        val sign = if (weightDeviationPercent > 0) "+" else ""
+                                        Text(
+                                            text = "($sign${String.format(Locale.US, "%.1f", weightDeviationPercent)}% عن المتوسط)",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = SoftTheme.GoldFasting,
+                                            fontSize = 10.sp
+                                        )
+                                    } else {
+                                        Text(
+                                            text = "(مطابق للمتوسط الطبيعي)",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = SoftTheme.SoftGray,
+                                            fontSize = 10.sp
+                                        )
+                                    }
                                 }
                             }
 
-                            // Length Compare Card
                             Card(
                                 colors = CardDefaults.cardColors(containerColor = SoftTheme.DeepSlate),
                                 shape = RoundedCornerShape(16.dp),
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Column(
-                                    modifier = Modifier.padding(12.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Text("طول الجنين 📏", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text("${latestLog.lengthCm} سم", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite, fontSize = 16.sp)
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text("الطول التقريبي 📏", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = "المفترض: ${standard.lengthCm} سم",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = SoftTheme.SoftGray
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = if (lengthDiffPct >= 0) "+${lengthDiffPct.toInt()}%" else "${lengthDiffPct.toInt()}%",
+                                        text = "${liveStandard.lengthCm} سم",
                                         fontWeight = FontWeight.Bold,
-                                        color = if (lengthDiffPct in -15.0..15.0) Color.Green else if (lengthDiffPct > 15) SoftTheme.SoftPink else Color.Yellow,
-                                        fontSize = 12.sp
+                                        color = SoftTheme.TextWhite,
+                                        fontSize = 16.sp
+                                    )
+                                    Text(
+                                        text = "من الرأس إلى الكعب",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = SoftTheme.SoftGray,
+                                        fontSize = 10.sp
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(SoftTheme.DeepSlate.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                                .padding(12.dp)
+                        ) {
+                            Text(
+                                text = "💡 نصيحة الأسبوع: ${liveStandard.description}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = SoftTheme.TextWhite.copy(alpha = 0.9f),
+                                lineHeight = 18.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Visual Growth Curve Chart
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
+                shape = RoundedCornerShape(24.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("fetal_growth_chart_card")
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "منحنى الوزن البياني التفاعلي 📊",
+                                fontWeight = FontWeight.Bold,
+                                color = SoftTheme.TextWhite,
+                                fontSize = 16.sp
+                            )
+                            Text(
+                                text = "مقارنة وزن طفلكِ الحقيقي بالخط المعياري المرجعي",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = SoftTheme.SoftGray
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Legend
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Box(modifier = Modifier.size(12.dp).background(Color(0xFFFFB6C1), CircleShape))
+                            Text("المعدل المرجعي الطبيعي", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Box(modifier = Modifier.size(12.dp).background(Color.White, CircleShape))
+                            Text("قياسات طفلكِ الفعلية", style = MaterialTheme.typography.bodySmall, color = SoftTheme.TextWhite)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    FetalGrowthChart(logs = activePregnancyLogs)
+                }
+            }
+        }
+
+        // 3. Detailed Latest Status & Diagnosis Card
+        val latestLog = activePregnancyLogs.maxByOrNull { it.pregnancyWeek }
+        if (latestLog != null) {
+            item {
+                val standard = FetalStandardData.getStandardForWeek(latestLog.pregnancyWeek)
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
+                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(standard.icon, fontSize = 24.sp)
+                                Column {
+                                    Text(
+                                        text = "آخر تقييم: الأسبوع ${latestLog.pregnancyWeek}",
+                                        fontWeight = FontWeight.Bold,
+                                        color = SoftTheme.TextWhite,
+                                        fontSize = 16.sp
+                                    )
+                                    Text(
+                                        text = "حجم طفلكِ الآن يقارب: ${standard.fruitComparison}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = SoftTheme.SoftPink
                                     )
                                 }
                             }
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(SoftTheme.DeepSlate, RoundedCornerShape(16.dp))
-                                .padding(12.dp)
+
+                        // Comparison Metrics
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Column {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Icon(Icons.Default.Info, contentDescription = null, tint = SoftTheme.SoftPink, modifier = Modifier.size(16.dp))
+                            // Weight comparison
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = SoftTheme.DeepSlate),
+                                shape = RoundedCornerShape(16.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text("وزن الجنين ⚖️", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
+                                    Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = "مقارنة الحجم: طفلكِ الآن بحجم (${standard.fruitComparison})",
+                                        text = "${latestLog.weightGrams.toInt()} جم",
+                                        fontWeight = FontWeight.Bold,
+                                        color = SoftTheme.TextWhite,
+                                        fontSize = 16.sp
+                                    )
+                                    val weightDiffPct = FetalStandardData.calculateWeightDeviation(latestLog.pregnancyWeek, latestLog.weightGrams)
+                                    val sign = if (weightDiffPct > 0) "+" else ""
+                                    Text(
+                                        text = "$sign${String.format(Locale.US, "%.1f", weightDiffPct)}% عن المعدل",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = if (weightDiffPct in -15.0..15.0) SoftTheme.MintTeal else SoftTheme.GoldFasting
+                                    )
+                                }
+                            }
+
+                            // Length comparison
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = SoftTheme.DeepSlate),
+                                shape = RoundedCornerShape(16.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text("طول الجنين 📏", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "${latestLog.lengthCm} سم",
+                                        fontWeight = FontWeight.Bold,
+                                        color = SoftTheme.TextWhite,
+                                        fontSize = 16.sp
+                                    )
+                                    val lengthDiffPct = FetalStandardData.calculateLengthDeviation(latestLog.pregnancyWeek, latestLog.lengthCm)
+                                    val sign = if (lengthDiffPct > 0) "+" else ""
+                                    Text(
+                                        text = "$sign${String.format(Locale.US, "%.1f", lengthDiffPct)}% عن المعدل",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = if (lengthDiffPct in -15.0..15.0) SoftTheme.MintTeal else SoftTheme.GoldFasting
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Fruit Comparison Card
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = SoftTheme.DeepSlate.copy(alpha = 0.7f)),
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(standard.icon, fontSize = 20.sp)
+                                    Text(
+                                        text = "المقارنة اللطيفة: كبر حجم ${standard.fruitComparison}",
                                         fontWeight = FontWeight.Bold,
                                         color = SoftTheme.TextWhite,
                                         fontSize = 13.sp
@@ -512,6 +440,7 @@ fun FetalGrowthSubScreen(viewModel: WomanCompanionViewModel) {
                         }
 
                         Spacer(modifier = Modifier.height(12.dp))
+                        val weightDiffPct = FetalStandardData.calculateWeightDeviation(latestLog.pregnancyWeek, latestLog.weightGrams)
                         val diagnosisText = when {
                             weightDiffPct in -15.0..15.0 -> "نمو طفلكِ في النطاق الذهبي الممتاز والمثالي! 🌟 الاستمرار في التغذية المتوازنة رائع جداً ويمنح جنينك القوة والصحة."
                             weightDiffPct < -15.0 -> "وزن طفلكِ أقل قليلاً من المعدل المتوسط. لا تقلقي يا غالية، قد يكون القياس بالسونار تقريبياً، لكن ننصحكِ بمناقشة طبيبتكِ في تحسين التغذية وزيادة الأطعمة الغنية بالبروتينات والحديد مثل اللحوم الحمراء والبيض والمكسرات!"
@@ -660,226 +589,18 @@ fun FetalGrowthSubScreen(viewModel: WomanCompanionViewModel) {
 
     // Add Record Dialog
     if (showAddDialog) {
-        AlertDialog(
-            onDismissRequest = { showAddDialog = false },
-            title = {
-                Text(
-                    text = "تسجيل فحص السونار والنمو 👶🏥",
-                    fontWeight = FontWeight.Bold,
-                    color = SoftTheme.TextWhite,
-                    fontSize = 18.sp,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Right
+        AddFetalGrowthDialog(
+            initialWeek = selectedWeek,
+            onDismiss = { showAddDialog = false },
+            onSave = { week, weight, length, notes ->
+                viewModel.addFetalGrowthLog(
+                    week = week,
+                    weightGrams = weight,
+                    lengthCm = length,
+                    notes = notes
                 )
-            },
-            text = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    // Week Picker Slider
-                    Column {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("أسبوع الحمل الحالي:", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
-                            Text("الأسبوع $selectedWeek", fontWeight = FontWeight.Bold, color = SoftTheme.SoftPink)
-                        }
-                        Slider(
-                            value = selectedWeek.toFloat(),
-                            onValueChange = { selectedWeek = it.toInt() },
-                            valueRange = 4f..42f,
-                            steps = 38,
-                            colors = SliderDefaults.colors(
-                                thumbColor = SoftTheme.SoftPink,
-                                activeTrackColor = SoftTheme.SoftPink,
-                                inactiveTrackColor = SoftTheme.DeepSlate
-                            )
-                        )
-                        val expectedStd = FetalStandardData.getStandardForWeek(selectedWeek)
-                        Text(
-                            text = "المعدل الطبيعي للأسبوع $selectedWeek: ${expectedStd.weightGrams.toInt()} جرام | ${expectedStd.lengthCm} سم",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = SoftTheme.SoftGray
-                        )
-                    }
-
-                    // Weight Input + Estimation Action
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        OutlinedTextField(
-                            value = weightInput,
-                            onValueChange = { weightInput = it },
-                            label = { Text("وزن الجنين (بالجرام)", color = SoftTheme.SoftGray) },
-                            placeholder = { Text("مثال: 500") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("baby_weight_input"),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = SoftTheme.TextWhite,
-                                unfocusedTextColor = SoftTheme.TextWhite,
-                                focusedBorderColor = SoftTheme.SoftPink,
-                                unfocusedBorderColor = SoftTheme.DeepSlate
-                            )
-                        )
-                        val parsedLength = lengthInput.toDoubleOrNull()
-                        if (parsedLength != null && parsedLength > 0.0) {
-                            val estimatedW = FetalStandardData.estimateWeightFromLength(selectedWeek, parsedLength)
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "💡 الوزن المقدر من الطول: ${estimatedW.toInt()} جرام",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = SoftTheme.MintTeal,
-                                    fontSize = 11.sp
-                                )
-                                TextButton(
-                                    onClick = { weightInput = estimatedW.toInt().toString() },
-                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
-                                ) {
-                                    Text("تعبئة تلقائية 🪄", color = SoftTheme.SoftPink, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-
-                    // Length Input + Estimation Action
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        OutlinedTextField(
-                            value = lengthInput,
-                            onValueChange = { lengthInput = it },
-                            label = { Text("طول الجنين (بالسنتيمتر)", color = SoftTheme.SoftGray) },
-                            placeholder = { Text("مثال: 28.0") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("baby_length_input"),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = SoftTheme.TextWhite,
-                                unfocusedTextColor = SoftTheme.TextWhite,
-                                focusedBorderColor = SoftTheme.SoftPink,
-                                unfocusedBorderColor = SoftTheme.DeepSlate
-                            )
-                        )
-                        val parsedWeight = weightInput.toDoubleOrNull()
-                        if (parsedWeight != null && parsedWeight > 0.0) {
-                            val estimatedL = FetalStandardData.estimateLengthFromWeight(selectedWeek, parsedWeight)
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "💡 الطول المقدر من الوزن: $estimatedL سم",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = SoftTheme.MintTeal,
-                                    fontSize = 11.sp
-                                )
-                                TextButton(
-                                    onClick = { lengthInput = estimatedL.toString() },
-                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
-                                ) {
-                                    Text("تعبئة تلقائية 🪄", color = SoftTheme.SoftPink, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-
-                    // Helper Note for Smart Estimation
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = SoftTheme.DeepSlate.copy(alpha = 0.6f)),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text("✨", fontSize = 16.sp)
-                            Text(
-                                text = "إذا لم يتوفر لديكِ أحد القياسين من السونار (الوزن أو الطول)، اتركي خانته فارغة وسيقوم التطبيق بحسابه وتقديره تلقائياً بدقة بناءً على قياس الآخر ومنحنى النمو!",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = SoftTheme.SoftGray,
-                                fontSize = 11.sp,
-                                lineHeight = 16.sp
-                            )
-                        }
-                    }
-
-                    // Notes Input
-                    OutlinedTextField(
-                        value = notesInput,
-                        onValueChange = { notesInput = it },
-                        label = { Text("ملاحظات الطبيب / العيادة (اختياري)", color = SoftTheme.SoftGray) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("growth_notes_input"),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = SoftTheme.TextWhite,
-                            unfocusedTextColor = SoftTheme.TextWhite,
-                            focusedBorderColor = SoftTheme.SoftPink,
-                            unfocusedBorderColor = SoftTheme.DeepSlate
-                        )
-                    )
-
-                    isErrorMsg?.let {
-                        Text(it, color = Color.Red, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        var weight = weightInput.toDoubleOrNull()
-                        var length = lengthInput.toDoubleOrNull()
-
-                        // إذا كان كلاهما فارغاً أو غير صالح
-                        if ((weight == null || weight <= 0.0) && (length == null || length <= 0.0)) {
-                            isErrorMsg = "برجاء إدخال قياس واحد على الأقل (الوزن أو الطول) ليتم الحساب التلقائي."
-                            return@Button
-                        }
-
-                        // إذا أدخل الوزن فقط ولم يدخل الطول -> حساب الطول من الوزن
-                        if ((length == null || length <= 0.0) && (weight != null && weight > 0.0)) {
-                            length = FetalStandardData.estimateLengthFromWeight(selectedWeek, weight)
-                        }
-                        // إذا أدخل الطول فقط ولم يدخل الوزن -> حساب الوزن من الطول
-                        else if ((weight == null || weight <= 0.0) && (length != null && length > 0.0)) {
-                            weight = FetalStandardData.estimateWeightFromLength(selectedWeek, length)
-                        }
-
-                        if (weight != null && length != null) {
-                            viewModel.addFetalGrowthLog(
-                                week = selectedWeek,
-                                weightGrams = weight,
-                                lengthCm = length,
-                                notes = notesInput.ifBlank { null }
-                            )
-
-                            // Reset inputs and close
-                            notesInput = ""
-                            isErrorMsg = null
-                            showAddDialog = false
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
-                    modifier = Modifier.testTag("confirm_add_growth_log")
-                ) {
-                    Text("حفظ 💾", color = SoftTheme.DeepSlate, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAddDialog = false }) {
-                    Text("إلغاء", color = SoftTheme.SoftGray)
-                }
-            },
-            containerColor = SoftTheme.CardSlate,
-            shape = RoundedCornerShape(24.dp)
+                showAddDialog = false
+            }
         )
     }
 
@@ -895,359 +616,4 @@ fun FetalGrowthSubScreen(viewModel: WomanCompanionViewModel) {
             }
         )
     }
-}
-
-@Composable
-fun FetalGrowthChart(logs: List<FetalGrowthLog>) {
-    val sortedLogs = remember(logs) { logs.sortedBy { it.pregnancyWeek } }
-    
-    // Determine min and max weeks to draw
-    val minWeek = 4f
-    val maxWeek = 42f
-    
-    // Max weight standard or actual to fit the chart properly
-    val maxWeight = remember(sortedLogs) {
-        val maxLogWeight = sortedLogs.maxOfOrNull { it.weightGrams } ?: 0.0
-        val maxStdWeight = FetalStandardData.getStandardForWeek(42).weightGrams
-        maxOf(maxLogWeight, maxStdWeight).toFloat()
-    }
-
-    Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(180.dp)
-    ) {
-        val width = size.width
-        val height = size.height
-        val paddingLeft = 50f
-        val paddingRight = 20f
-        val paddingTop = 20f
-        val paddingBottom = 40f
-        
-        val chartWidth = width - paddingLeft - paddingRight
-        val chartHeight = height - paddingTop - paddingBottom
-
-        // Draw axes lines (Deep Slate color)
-        drawLine(
-            color = Color.White.copy(alpha = 0.1f),
-            start = Offset(paddingLeft, paddingTop),
-            end = Offset(paddingLeft, height - paddingBottom),
-            strokeWidth = 2f
-        )
-        drawLine(
-            color = Color.White.copy(alpha = 0.1f),
-            start = Offset(paddingLeft, height - paddingBottom),
-            end = Offset(width - paddingRight, height - paddingBottom),
-            strokeWidth = 2f
-        )
-
-        // Helper function to map week and weight to X,Y offsets
-        fun getCoordinates(week: Float, weight: Float): Offset {
-            val xRatio = (week - minWeek) / (maxWeek - minWeek)
-            val yRatio = weight / maxWeight
-            val x = paddingLeft + (xRatio * chartWidth)
-            val y = (height - paddingBottom) - (yRatio * chartHeight)
-            return Offset(x, y)
-        }
-
-        // 1. Draw expected standard curve (dotted line in SoftPink)
-        val pathStd = Path()
-        var firstStd = true
-        for (w in 4..42) {
-            val stdWeight = FetalStandardData.getStandardForWeek(w).weightGrams.toFloat()
-            val pt = getCoordinates(w.toFloat(), stdWeight)
-            if (firstStd) {
-                pathStd.moveTo(pt.x, pt.y)
-                firstStd = false
-            } else {
-                pathStd.lineTo(pt.x, pt.y)
-            }
-        }
-        drawPath(
-            path = pathStd,
-            color = Color(0xFFFFB6C1).copy(alpha = 0.6f),
-            style = Stroke(
-                width = 3f,
-                pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
-            )
-        )
-
-        // 2. Draw actual user logs (solid line + circular dots)
-        if (sortedLogs.isNotEmpty()) {
-            val pathActual = Path()
-            var firstActual = true
-            sortedLogs.forEach { log ->
-                val pt = getCoordinates(log.pregnancyWeek.toFloat(), log.weightGrams.toFloat())
-                if (firstActual) {
-                    pathActual.moveTo(pt.x, pt.y)
-                    firstActual = false
-                } else {
-                    pathActual.lineTo(pt.x, pt.y)
-                }
-            }
-            // Draw actual line
-            drawPath(
-                path = pathActual,
-                color = Color.White,
-                style = Stroke(width = 4f)
-            )
-
-            // Draw actual dots
-            sortedLogs.forEach { log ->
-                val pt = getCoordinates(log.pregnancyWeek.toFloat(), log.weightGrams.toFloat())
-                drawCircle(
-                    color = Color.White,
-                    radius = 8f,
-                    center = pt
-                )
-                drawCircle(
-                    color = Color(0xFFFFB6C1),
-                    radius = 4f,
-                    center = pt
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun PregnancyHistorySection(
-    allPregnancies: List<PregnancyEntity>,
-    allLogs: List<FetalGrowthLog>,
-    onStartNewPregnancy: () -> Unit
-) {
-    var expandedPregnancyId by remember { mutableStateOf<Int?>(null) }
-    val dateFormatter = remember { SimpleDateFormat("yyyy/MM/dd", Locale("ar")) }
-
-    Card(
-        colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-        shape = RoundedCornerShape(24.dp),
-        modifier = Modifier.fillMaxWidth().testTag("pregnancy_history_card")
-    ) {
-        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("📜", fontSize = 20.sp)
-                    Text(
-                        text = "سجل الأحمال والقياسات السابقة",
-                        fontWeight = FontWeight.Bold,
-                        color = SoftTheme.TextWhite,
-                        fontSize = 16.sp
-                    )
-                }
-                Button(
-                    onClick = onStartNewPregnancy,
-                    colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
-                    shape = RoundedCornerShape(12.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                    modifier = Modifier.testTag("start_new_pregnancy_btn")
-                ) {
-                    Text("حمل جديد ➕", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-
-            if (allPregnancies.isEmpty()) {
-                Text(
-                    text = "لا يوجد سجل أحمال سابقة محتفظ به.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = SoftTheme.SoftGray
-                )
-            } else {
-                allPregnancies.forEach { preg ->
-                    val isExpanded = expandedPregnancyId == preg.id
-                    val pregLogs = allLogs.filter { it.pregnancyId == preg.id }
-
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = SoftTheme.DeepSlate),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column {
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        Text(
-                                            text = if (preg.isActive) "الحمل الحالي 🤰" else "حمل سابق 👶",
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (preg.isActive) SoftTheme.MintTeal else SoftTheme.SoftPink,
-                                            fontSize = 14.sp
-                                        )
-                                        if (!preg.babyName.isNullOrBlank()) {
-                                            Text(
-                                                text = "(${preg.babyName})",
-                                                color = SoftTheme.TextWhite,
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    if (preg.lastPeriodDate != null) {
-                                        Text(
-                                            text = "تاريخ الدورة الأخيرة: ${dateFormatter.format(Date(preg.lastPeriodDate))}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = SoftTheme.SoftGray
-                                        )
-                                    }
-                                    if (preg.dueDate != null) {
-                                        Text(
-                                            text = "تاريخ الولادة المتوقع: ${dateFormatter.format(Date(preg.dueDate))}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = SoftTheme.SoftGray
-                                        )
-                                    }
-                                }
-
-                                TextButton(onClick = { expandedPregnancyId = if (isExpanded) null else preg.id }) {
-                                    Text(
-                                        text = if (isExpanded) "إخفاء 🔼" else "القياسات (${pregLogs.size}) 🔽",
-                                        color = SoftTheme.GoldFasting,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-
-                            if (isExpanded) {
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = SoftTheme.CardSlate)
-                                if (pregLogs.isEmpty()) {
-                                    Text(
-                                        text = "لم تسجل قياسات سونار لهذا الحمل.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = SoftTheme.SoftGray,
-                                        modifier = Modifier.padding(vertical = 4.dp)
-                                    )
-                                } else {
-                                    pregLogs.sortedBy { it.pregnancyWeek }.forEach { l ->
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                            horizontalArrangement = Arrangement.SpaceBetween
-                                        ) {
-                                            Text(
-                                                text = "أسبوع ${l.pregnancyWeek}: ${l.weightGrams.toInt()} جرام | ${l.lengthCm} سم",
-                                                color = SoftTheme.TextWhite,
-                                                fontSize = 12.sp
-                                            )
-                                            if (!l.notes.isNullOrBlank()) {
-                                                Text(
-                                                    text = l.notes,
-                                                    color = SoftTheme.SoftGray,
-                                                    fontSize = 11.sp
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun StartNewPregnancyDialog(
-    onDismiss: () -> Unit,
-    onConfirm: (lastPeriodDateMs: Long, babyName: String?) -> Unit
-) {
-    var babyNameInput by remember { mutableStateOf("") }
-    var selectedDateMs by remember { mutableStateOf(System.currentTimeMillis() - 28L * 86400000L) }
-    val dateFormatter = remember { SimpleDateFormat("yyyy/MM/dd", Locale("ar")) }
-    val context = LocalContext.current
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = "بدء تسجيل حمل جديد 🌸",
-                fontWeight = FontWeight.Bold,
-                color = SoftTheme.TextWhite,
-                fontSize = 18.sp,
-                textAlign = TextAlign.Right,
-                modifier = Modifier.fillMaxWidth()
-            )
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = "سيتم حفظ بيانات وسجلات الحمل السابق تلقائياً في السجل التاريخي وبدء متابعة مخصصة للحمل الجديد.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = SoftTheme.SoftGray
-                )
-
-                OutlinedTextField(
-                    value = babyNameInput,
-                    onValueChange = { babyNameInput = it },
-                    label = { Text("اسم المولود المتوقع (اختياري)") },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = SoftTheme.SoftPink,
-                        unfocusedBorderColor = SoftTheme.SoftGray,
-                        focusedLabelColor = SoftTheme.SoftPink,
-                        unfocusedLabelColor = SoftTheme.SoftGray,
-                        focusedTextColor = SoftTheme.TextWhite,
-                        unfocusedTextColor = SoftTheme.TextWhite
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text("تاريخ أول يوم من آخر دورة (LMP):", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
-                        Text(dateFormatter.format(Date(selectedDateMs)), fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite)
-                    }
-                    Button(
-                        onClick = {
-                            val cal = java.util.Calendar.getInstance()
-                            cal.timeInMillis = selectedDateMs
-                            android.app.DatePickerDialog(
-                                context,
-                                { _, year, month, dayOfMonth ->
-                                    val newCal = java.util.Calendar.getInstance()
-                                    newCal.set(year, month, dayOfMonth, 0, 0, 0)
-                                    selectedDateMs = newCal.timeInMillis
-                                },
-                                cal.get(java.util.Calendar.YEAR),
-                                cal.get(java.util.Calendar.MONTH),
-                                cal.get(java.util.Calendar.DAY_OF_MONTH)
-                            ).show()
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.CardSlate)
-                    ) {
-                        Text("تغيير 📅", color = SoftTheme.SoftPink, fontSize = 12.sp)
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    onConfirm(selectedDateMs, babyNameInput.ifBlank { null })
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink)
-            ) {
-                Text("تأكيد وبدء الحمل 🌸", color = Color.White)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("إلغاء", color = SoftTheme.SoftGray)
-            }
-        },
-        containerColor = SoftTheme.CardSlate
-    )
 }

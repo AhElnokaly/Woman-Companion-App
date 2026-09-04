@@ -50,7 +50,25 @@ data class HospitalBagItem(
 @Composable
 fun HospitalBagScreen(viewModel: WomanCompanionViewModel) {
     val context = LocalContext.current
-    val prefs = remember { context.getSharedPreferences("hospital_bag_prefs", Context.MODE_PRIVATE) }
+    val prefs = remember {
+        val unified = context.getSharedPreferences("woman_companion_prefs", Context.MODE_PRIVATE)
+        val legacy = context.getSharedPreferences("hospital_bag_prefs", Context.MODE_PRIVATE)
+        // Migrate legacy entries if any exist and unified doesn't have them
+        if (legacy.all.isNotEmpty() && !unified.contains("hospital_bag_migrated")) {
+            val editor = unified.edit()
+            legacy.all.forEach { (key, value) ->
+                when (value) {
+                    is Boolean -> editor.putBoolean(key, value)
+                    is Int -> editor.putInt(key, value)
+                    is Long -> editor.putLong(key, value)
+                    is Float -> editor.putFloat(key, value)
+                    is String -> editor.putString(key, value)
+                }
+            }
+            editor.putBoolean("hospital_bag_migrated", true).apply()
+        }
+        unified
+    }
     
     val initialItems = remember {
         listOf(

@@ -113,43 +113,7 @@ object ReminderScheduler {
     }
 
     fun scheduleMedicationReminders(context: Context, med: MedicationLog) {
-        if (!med.isActive) return
-        val now = System.currentTimeMillis()
-        val baseTime = med.startDate ?: now
-        val count = med.timesPerDay.coerceIn(1, 20)
-
-        if (count == 1) {
-            var trigger = if (baseTime > now) baseTime else baseTime + 24 * 3600 * 1000L
-            if (trigger <= now) {
-                trigger = now + 60_000L
-            }
-            scheduleReminder(
-                context = context,
-                id = med.id * 100,
-                triggerTimeMillis = trigger,
-                title = "تذكير بجرعة الدواء: ${med.name}",
-                body = "الجرعة: ${med.dosage ?: "حسب الوصفة"}",
-                recurrence = RecurrenceType.DAILY,
-                medicationId = med.id
-            )
-        } else {
-            val interval = (24 * 3600 * 1000L) / count
-            for (i in 0 until count) {
-                var trigger = baseTime + i * interval
-                while (trigger <= now) {
-                    trigger += 24 * 3600 * 1000L
-                }
-                scheduleReminder(
-                    context = context,
-                    id = med.id * 100 + i,
-                    triggerTimeMillis = trigger,
-                    title = "تذكير بجرعة الدواء: ${med.name} (جرعة ${i + 1}/$count)",
-                    body = "الجرعة: ${med.dosage ?: "حسب الوصفة"}",
-                    recurrence = RecurrenceType.DAILY,
-                    medicationId = med.id
-                )
-            }
-        }
+        SmartMedicationScheduler.schedule(context, med)
     }
 
     fun cancelMedicationReminders(context: Context, medId: Int, timesPerDay: Int = 10) {
@@ -311,9 +275,11 @@ class ReminderReceiver : BroadcastReceiver() {
             ReminderScheduler.ACTION_MARK_TAKEN -> {
                 notificationManager.cancel(reminderId)
                 if (medId > 0) {
-                    val db = AppDatabase.getDatabase(context.applicationContext)
+                    val pendingResult = goAsync()
+                    val appContext = context.applicationContext
                     CoroutineScope(Dispatchers.IO).launch {
                         try {
+                            val db = AppDatabase.getDatabase(appContext)
                             val dao = db.womanCompanionDao()
                             dao.decrementMedicationQuantity(medId)
                             dao.insertMedicationAdherenceLog(
@@ -326,6 +292,8 @@ class ReminderReceiver : BroadcastReceiver() {
                             )
                         } catch (e: Exception) {
                             Log.e("ReminderReceiver", "Error recording adherence or decrementing quantity", e)
+                        } finally {
+                            pendingResult.finish()
                         }
                     }
                 }

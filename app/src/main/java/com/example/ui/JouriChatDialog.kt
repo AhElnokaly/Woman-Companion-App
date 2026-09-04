@@ -17,6 +17,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -47,117 +48,17 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.BuildConfig
 import com.example.data.*
+import com.example.ui.chat.ArabicVirtualKeyboard
+import com.example.ui.chat.CloudAiConsentDialog
+import com.example.ui.chat.JouriAvatar
+import com.example.ui.chat.JouriChatMessageList
+import com.example.ui.chat.JouriChatSkeletonResponse
+import com.example.ui.chat.JouriConsultationCatalog
+import com.example.ui.chat.JouriExpressionState
 import com.example.viewmodel.WomanCompanionViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlinx.coroutines.launch
-
-enum class JouriExpressionState(val emoji: String, val label: String) {
-    WARM_HAPPY("🌸", "سعيدة ودافئة"),
-    ATTENTIVE_LISTENING("✍️🌸", "تستمع بإنصات"),
-    REASSURING("🤗🌸", "طمأنينة ورعاية"),
-    CELEBRATORY("🎉🌸", "محتفلة وفخورة")
-}
-
-@Composable
-fun JouriAvatar(
-    expression: JouriExpressionState = JouriExpressionState.WARM_HAPPY,
-    size: androidx.compose.ui.unit.Dp = 40.dp,
-    modifier: Modifier = Modifier
-) {
-    val borderColor = when (expression) {
-        JouriExpressionState.CELEBRATORY -> SoftTheme.PregnancyPurple
-        JouriExpressionState.REASSURING -> SoftTheme.MintTeal
-        JouriExpressionState.ATTENTIVE_LISTENING -> SoftTheme.LightPink
-        JouriExpressionState.WARM_HAPPY -> SoftTheme.SoftPink
-    }
-
-    Box(
-        modifier = modifier
-            .size(size)
-            .clip(CircleShape)
-            .border(1.5.dp, borderColor, CircleShape)
-            .testTag("jouri_avatar_${expression.name.lowercase()}"),
-        contentAlignment = Alignment.Center
-    ) {
-        Image(
-            painter = painterResource(id = com.example.R.drawable.jouri_showcase_1783592034174),
-            contentDescription = "جوري",
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
-        )
-    }
-}
-
-@Composable
-fun JouriChatSkeletonResponse(
-    companionName: String = "جوري",
-    modifier: Modifier = Modifier
-) {
-    val infiniteTransition = rememberInfiniteTransition(label = "skeleton_shimmer")
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.25f,
-        targetValue = 0.7f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 800, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "skeleton_alpha"
-    )
-
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .testTag("jouri_chat_skeleton_response"),
-        contentAlignment = Alignment.CenterStart
-    ) {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = SoftTheme.DeepSlate),
-            shape = RoundedCornerShape(
-                topStart = 16.dp,
-                topEnd = 16.dp,
-                bottomStart = 0.dp,
-                bottomEnd = 16.dp
-            ),
-            modifier = Modifier.widthIn(max = 240.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    JouriAvatar(expression = JouriExpressionState.ATTENTIVE_LISTENING, size = 20.dp)
-                    Text(
-                        text = "$companionName تفكر وتصيغ لكِ إجابة دافئة...",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = SoftTheme.SoftPink
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .height(10.dp)
-                        .fillMaxWidth(0.9f)
-                        .background(SoftTheme.SoftGray.copy(alpha = alpha), RoundedCornerShape(6.dp))
-                )
-                Box(
-                    modifier = Modifier
-                        .height(10.dp)
-                        .fillMaxWidth(0.7f)
-                        .background(SoftTheme.SoftGray.copy(alpha = alpha), RoundedCornerShape(6.dp))
-                )
-                Box(
-                    modifier = Modifier
-                        .height(10.dp)
-                        .fillMaxWidth(0.5f)
-                        .background(SoftTheme.SoftGray.copy(alpha = alpha), RoundedCornerShape(6.dp))
-                )
-            }
-        }
-    }
-}
 
 // --- Jouri Smart Companion Chat Dialog ---
 @Composable
@@ -232,7 +133,7 @@ fun JouriChatDialog(
     }
 
     var selectedCatalogCategory by remember { mutableStateOf("أعراض 🩺") }
-    val catalogCategories = remember { listOf("أعراض 🩺", "أوجاع ⚡", "ضغط الدم ❤️", "التغذية 🥑", "أسئلة ❓") }
+    val catalogCategories = remember { listOf("أعراض 🩺", "أوجاع ⚡", "ضغط الدم ❤️", "التغذية 🥑", "نوم واسترخاء 🌙", "أسئلة ❓") }
     val catalogSubItems = remember {
         mapOf(
             "أعراض 🩺" to listOf(
@@ -259,6 +160,11 @@ fun JouriChatDialog(
                 "خضروات ورقية 🥦" to "انصحيني بخضار وخضروات طازجة وفوائدها",
                 "فاكهة مصرية 🍉" to "انصحيني بفاكهة وفواكه مصرية مفيدة ومكوناتها",
                 "أعشاب مهدئة 🍵" to "انصحيني بمشروب وأعشاب دافئة مهدئة وفوائدها"
+            ),
+            "نوم واسترخاء 🌙" to listOf(
+                "أرق وصعوبة نوم 🥱" to "أعاني من أرق وصعوبة في النوم ومحتاجة نصائح للراحة",
+                "تمارين التنفس 🌸" to "كيف أمارس تمرين التنفس المهدئ لتقليل التوتر؟",
+                "وضعية النوم الآمنة 🤰" to "ما هي وضعيات النوم الصحية والآمنة أثناء الحمل والنفاس؟"
             ),
             "أسئلة ❓" to listOf(
                 "المشي والحركة 🚶‍♀️" to "هل المشي والحركة مفيدان في حالتي؟",
@@ -427,7 +333,7 @@ fun JouriChatDialog(
                         }
                     }
                     "food_list" -> {
-                        val list = actionValue as? List<com.example.data.EgyptianFoodEntity>
+                        val list = (actionValue as? List<*>)?.filterIsInstance<com.example.data.EgyptianFoodEntity>()
                         list?.forEach { food ->
                             val mealType = if (food.category == "drink") "مشروب" else "وجبة"
                             viewModel.addNutritionMeal(
@@ -651,47 +557,13 @@ fun JouriChatDialog(
                 )
 
                 // Message List
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(messages) { (text, isUser) ->
-                        Box(
-                            modifier = Modifier.fillMaxWidth(),
-                            contentAlignment = if (isUser) Alignment.CenterEnd else Alignment.CenterStart
-                        ) {
-                            Card(
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (isUser) SoftTheme.SoftPink else SoftTheme.DeepSlate
-                                ),
-                                shape = RoundedCornerShape(
-                                    topStart = 16.dp,
-                                    topEnd = 16.dp,
-                                    bottomStart = if (isUser) 16.dp else 0.dp,
-                                    bottomEnd = if (isUser) 0.dp else 16.dp
-                                ),
-                                modifier = Modifier.widthIn(max = 260.dp)
-                            ) {
-                                Text(
-                                    text = text,
-                                    modifier = Modifier.padding(12.dp),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = SoftTheme.TextWhite,
-                                    lineHeight = 20.sp
-                                )
-                            }
-                        }
-                    }
-
-                    if (isTyping) {
-                        item {
-                            JouriChatSkeletonResponse(companionName = companionName)
-                        }
-                    }
-                }
+                JouriChatMessageList(
+                    messages = messages,
+                    isTyping = isTyping,
+                    companionName = companionName,
+                    listState = listState,
+                    modifier = Modifier.weight(1f)
+                )
 
                 // Smart Direct-Link Suggested Tool Button
                 activeSuggestedAction?.let { action ->
@@ -706,7 +578,7 @@ fun JouriChatDialog(
                         "craving" -> ToolTarget("فتح سجل الوحم والاشتهاء 🍉🍓", Icons.Default.FavoriteBorder, 4, "craving")
                         "sleep" -> ToolTarget("فتح محلل ومراقب النوم الذكي 🌙💤", Icons.Default.Notifications, 4, "sleep_analyzer")
                         "partner" -> ToolTarget("فتح رابط الرفيق ومشاركة الشريك 🔗❤️", Icons.Default.Share, 4, "partner_sync")
-                        "pharmacy" -> ToolTarget("فتح الصيدلية المنزلية المتقدمة 💊📦", Icons.Default.List, 4, "home_pharmacy")
+                        "pharmacy" -> ToolTarget("فتح الصيدلية المنزلية المتقدمة 💊📦", Icons.AutoMirrored.Filled.List, 4, "home_pharmacy")
                         "fitness" -> ToolTarget("فتح تمارين لياقة الحمل والنفاس 🧘‍♀️💪", Icons.Default.Star, 4, "fitness")
                         "maonaty" -> ToolTarget("فتح نظام معونتي المنزلي 📦🛒", Icons.Default.Home, 4, "maonaty")
                         "appointments" -> ToolTarget("تسجيل وحفظ مواعيد الأطباء 📅", Icons.Default.DateRange, 4, "appointments")
@@ -748,101 +620,21 @@ fun JouriChatDialog(
                 }
 
                 // Interactive Multi-Category Ready-To-Use Catalog
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "📋 قائمة الاستشارات والخيارات الجاهزة:",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = SoftTheme.SoftPink,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
-                        )
-                        Text(
-                            text = "اضغطي على أي خيار للسؤال فوراً ⚡",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = SoftTheme.SoftGray,
-                            fontSize = 9.sp
-                        )
-                    }
-
-                    // 1. Categories Tab Row
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                        contentPadding = PaddingValues(horizontal = 2.dp)
-                    ) {
-                        items(catalogCategories) { category ->
-                            val isSelected = selectedCatalogCategory == category
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(if (isSelected) SoftTheme.SoftPink else SoftTheme.DeepSlate)
-                                    .clickable { selectedCatalogCategory = category }
-                                    .border(
-                                        1.dp, 
-                                        if (isSelected) SoftTheme.LightPink else SoftTheme.SoftGray.copy(alpha = 0.2f), 
-                                        RoundedCornerShape(12.dp)
-                                    )
-                                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = category,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isSelected) SoftTheme.DeepSlate else SoftTheme.TextWhite
-                                )
+                JouriConsultationCatalog(
+                    categories = catalogCategories,
+                    subItems = catalogSubItems,
+                    selectedCategory = selectedCatalogCategory,
+                    onSelectCategory = { selectedCatalogCategory = it },
+                    onSelectOption = { fullText ->
+                        if (!isTyping) {
+                            messages.add(Pair(fullText, true))
+                            isTyping = true
+                            coroutineScope.launch {
+                                handleMessageResponse(fullText)
                             }
                         }
                     }
-
-                    // 2. Selected Category's Options List
-                    val activeOptions = catalogSubItems[selectedCatalogCategory] ?: emptyList()
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 2.dp),
-                        contentPadding = PaddingValues(horizontal = 2.dp)
-                    ) {
-                        items(activeOptions) { (label, fullText) ->
-                            AssistChip(
-                                onClick = {
-                                    if (!isTyping) {
-                                        messages.add(Pair(fullText, true))
-                                        isTyping = true
-                                        coroutineScope.launch {
-                                            handleMessageResponse(fullText)
-                                        }
-                                    }
-                                },
-                                label = { 
-                                    Text(
-                                        text = label, 
-                                        color = SoftTheme.TextWhite, 
-                                        fontSize = 10.sp, 
-                                        fontWeight = FontWeight.Bold
-                                    ) 
-                                },
-                                colors = AssistChipDefaults.assistChipColors(
-                                    containerColor = SoftTheme.DeepSlate,
-                                    labelColor = SoftTheme.TextWhite
-                                ),
-                                shape = RoundedCornerShape(14.dp),
-                                border = BorderStroke(1.dp, SoftTheme.SoftPink.copy(alpha = 0.35f))
-                            )
-                        }
-                    }
-                }
+                )
 
                 // Input Bar
                 Row(
@@ -897,7 +689,7 @@ fun JouriChatDialog(
                         enabled = inputMessage.trim().isNotEmpty() && !isTyping
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Send,
+                            imageVector = Icons.AutoMirrored.Filled.Send,
                             contentDescription = "إرسال",
                             tint = SoftTheme.TextWhite,
                             modifier = Modifier.size(20.dp)
@@ -907,116 +699,16 @@ fun JouriChatDialog(
 
                 // Arabic Virtual Keyboard
                 if (showVirtualKeyboard) {
-                    val keyboardRows = remember {
-                        listOf(
-                            listOf("ض", "ص", "ث", "ق", "ف", "غ", "ع", "ه", "خ", "ح", "ج", "د"),
-                            listOf("ش", "س", "ي", "ب", "ل", "ا", "ت", "ن", "م", "ك", "ط"),
-                            listOf("ئ", "ء", "ؤ", "ر", "لا", "ة", "و", "ز", "ذ", "ظ", "أ", "إ")
-                        )
-                    }
-
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = SoftTheme.DeepSlate),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            keyboardRows.forEach { row ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    row.forEach { char ->
-                                        Box(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .height(38.dp)
-                                                .background(SoftTheme.CardSlate, RoundedCornerShape(6.dp))
-                                                .clickable { inputMessage += char }
-                                                .padding(vertical = 4.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = char,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = SoftTheme.TextWhite,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 14.sp
-                                            )
-                                        }
-                                    }
-                                }
+                    ArabicVirtualKeyboard(
+                        onCharClick = { inputMessage += it },
+                        onSpaceClick = { inputMessage += " " },
+                        onBackspaceClick = {
+                            if (inputMessage.isNotEmpty()) {
+                                inputMessage = inputMessage.dropLast(1)
                             }
-                            // Control Row
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                // Space
-                                Box(
-                                    modifier = Modifier
-                                        .weight(2f)
-                                        .height(38.dp)
-                                        .background(SoftTheme.CardSlate, RoundedCornerShape(6.dp))
-                                        .clickable { inputMessage += " " }
-                                        .padding(vertical = 4.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "مسافة ␣",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = SoftTheme.TextWhite,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                                // Backspace
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1.5f)
-                                        .height(38.dp)
-                                        .background(SoftTheme.SoftPink.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
-                                        .clickable {
-                                            if (inputMessage.isNotEmpty()) {
-                                                inputMessage = inputMessage.dropLast(1)
-                                            }
-                                        }
-                                        .padding(vertical = 4.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "مسح ⌫",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = SoftTheme.SoftPink,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                                // Clear
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(38.dp)
-                                        .background(SoftTheme.SoftPink.copy(alpha = 0.1f), RoundedCornerShape(6.dp))
-                                        .clickable { inputMessage = "" }
-                                        .padding(vertical = 4.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "حذف ❌",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = SoftTheme.SoftPink.copy(alpha = 0.8f),
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
-                    }
+                        },
+                        onClearClick = { inputMessage = "" }
+                    )
                 }
             }
         }
@@ -1024,63 +716,18 @@ fun JouriChatDialog(
     }
 
     if (showConsentDialog) {
-        Dialog(onDismissRequest = { showConsentDialog = false }) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                shape = RoundedCornerShape(20.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    Text(
-                        text = "🌐 تفعيل الذكاء السحابي (Google Gemini)",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = SoftTheme.TextWhite,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = "عند تفعيل الوضع السحابي، يتم إرسال رسالتك وسياق صحتك التوعوي العام (مثل مرحلة الحمل أو الدورة ودرجة الحرارة) إلى Google Gemini عبر اتصال HTTPS مشفر لتحسين الإجابة.\n\nبياناتك الشخصية وقاعدة بياناتك تظل مشفرة على هاتفك، ويمكنكِ دائماً استخدام الوضع المحلي الآمن 100% بدون أي اتصال خارجي.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = SoftTheme.SoftGray,
-                        lineHeight = 20.sp,
-                        textAlign = TextAlign.Start
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = {
-                                showConsentDialog = false
-                                isOfflineMode = true
-                            },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text("البقاء محلياً 📴", color = SoftTheme.SoftGray, fontSize = 12.sp)
-                        }
-                        Button(
-                            onClick = {
-                                viewModel.setCloudAiConsent(true)
-                                showConsentDialog = false
-                                isOfflineMode = false
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.PregnancyPurple),
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text("موافقة وتفعيل 🌐", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
+        CloudAiConsentDialog(
+            onDismiss = { showConsentDialog = false },
+            onKeepOffline = {
+                showConsentDialog = false
+                isOfflineMode = true
+            },
+            onAcceptCloud = {
+                viewModel.setCloudAiConsent(true)
+                showConsentDialog = false
+                isOfflineMode = false
             }
-        }
+        )
     }
 }
 

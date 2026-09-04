@@ -57,7 +57,7 @@ object GeminiService {
             ).replyText
         }
 
-        val url = "${baseUrl}v1beta/models/$modelName:generateContent?key=$apiKey"
+        val url = "${baseUrl}v1beta/models/$modelName:generateContent"
         val mediaType = "application/json; charset=utf-8".toMediaType()
 
         try {
@@ -103,6 +103,7 @@ object GeminiService {
             val requestBody = root.toString().toRequestBody(mediaType)
             val request = Request.Builder()
                 .url(url)
+                .addHeader("x-goog-api-key", apiKey)
                 .post(requestBody)
                 .build()
 
@@ -165,7 +166,7 @@ object GeminiService {
         val modelName = customModel ?: apiKeyRepository?.getModelName() ?: "gemini-3.5-flash"
         val baseUrl = ApiKeyRepository.sanitizeBaseUrl(rawBaseUrl)
         
-        val url = "${baseUrl}v1beta/models/$modelName:generateContent?key=$targetKey"
+        val url = "${baseUrl}v1beta/models/$modelName:generateContent"
         val mediaType = "application/json; charset=utf-8".toMediaType()
         try {
             val root = JSONObject()
@@ -183,6 +184,7 @@ object GeminiService {
             val requestBody = root.toString().toRequestBody(mediaType)
             val request = Request.Builder()
                 .url(url)
+                .addHeader("x-goog-api-key", targetKey)
                 .post(requestBody)
                 .build()
 

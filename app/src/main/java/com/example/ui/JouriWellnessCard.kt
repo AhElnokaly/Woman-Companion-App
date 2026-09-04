@@ -16,6 +16,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.*
+import com.example.ui.chat.JouriAvatar
+import com.example.ui.chat.JouriExpressionState
 import com.example.viewmodel.WomanCompanionViewModel
 
 @Composable

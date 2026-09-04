@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -471,10 +472,10 @@ fun LiveNutrientSimulatorWidget(
                                     Text(food.name, fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite, style = MaterialTheme.typography.bodyMedium)
                                     Text("الحصة: ${food.servingSize} • ${food.calories} سعرة", color = SoftTheme.SoftGray, style = MaterialTheme.typography.labelSmall)
                                 }
-                                Icon(Icons.Default.ArrowForward, contentDescription = null, tint = SoftTheme.SoftPink, modifier = Modifier.size(16.dp))
+                                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = SoftTheme.SoftPink, modifier = Modifier.size(16.dp))
                             }
                             if (food != filteredFoods.last()) {
-                                Divider(color = SoftTheme.CardSlate, thickness = 1.dp)
+                                HorizontalDivider(color = SoftTheme.CardSlate, thickness = 1.dp)
                             }
                         }
                     }
@@ -551,7 +552,7 @@ fun LiveNutrientSimulatorWidget(
                         }
                     }
 
-                    Divider(color = SoftTheme.CardSlate, thickness = 1.dp)
+                    HorizontalDivider(color = SoftTheme.CardSlate, thickness = 1.dp)
 
                     // Interactive modifiers section
                     Text("⚙️ تخصيص الكوب والوجبة بالإضافات:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite)
@@ -621,7 +622,7 @@ fun LiveNutrientSimulatorWidget(
                     val calculatedFiber = food.fiberG
                     val calculatedWaterBenefit = food.waterBenefitMl
 
-                    Divider(color = SoftTheme.CardSlate, thickness = 1.dp)
+                    HorizontalDivider(color = SoftTheme.CardSlate, thickness = 1.dp)
 
                     // Benefits highlight text
                     Text("💡 ماذا ستستفيدين؟ الفوائد الصحية المباشرة:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = SoftTheme.MintTeal)
@@ -632,7 +633,7 @@ fun LiveNutrientSimulatorWidget(
                         lineHeight = 20.sp
                     )
 
-                    Divider(color = SoftTheme.CardSlate, thickness = 1.dp)
+                    HorizontalDivider(color = SoftTheme.CardSlate, thickness = 1.dp)
 
                     // Nutrient breakdown grid
                     Text("📊 الميزان الغذائي المخصّص بعد التعديلات:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite)

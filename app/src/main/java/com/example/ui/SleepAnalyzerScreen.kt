@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Spa
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,6 +29,7 @@ import com.example.viewmodel.WomanCompanionViewModel
 fun SleepAnalyzerScreen(viewModel: WomanCompanionViewModel) {
     val sleepLogs by viewModel.allSleepLogsState.collectAsStateWithLifecycle()
     var showAddDialog by remember { mutableStateOf(false) }
+    var showBreathingDialog by remember { mutableStateOf(false) }
 
     // Sleep recording states
     var startHoursAgo by remember { mutableStateOf(8f) }
@@ -40,6 +42,10 @@ fun SleepAnalyzerScreen(viewModel: WomanCompanionViewModel) {
     var sleepNotes by remember { mutableStateOf("") }
 
     val context = LocalContext.current
+
+    if (showBreathingDialog) {
+        GuidedBreathingDialog(onDismiss = { showBreathingDialog = false })
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -67,14 +73,30 @@ fun SleepAnalyzerScreen(viewModel: WomanCompanionViewModel) {
                         color = SoftTheme.SoftGray
                     )
                     
-                    Button(
-                        onClick = { showAddDialog = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
-                        modifier = Modifier.fillMaxWidth().testTag("add_sleep_log_button")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = null, tint = SoftTheme.TextWhite)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("تسجيل نوم الليلة الماضية ✍️", color = SoftTheme.TextWhite, fontWeight = FontWeight.Bold)
+                        Button(
+                            onClick = { showAddDialog = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
+                            modifier = Modifier.weight(1f).testTag("add_sleep_log_button")
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, tint = SoftTheme.TextWhite)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("تسجيل نوم ✍️", color = SoftTheme.TextWhite, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+
+                        OutlinedButton(
+                            onClick = { showBreathingDialog = true },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = SoftTheme.MintTeal),
+                            border = BorderStroke(1.dp, SoftTheme.MintTeal),
+                            modifier = Modifier.weight(1f).testTag("open_breathing_dialog_btn")
+                        ) {
+                            Icon(Icons.Default.Spa, contentDescription = null, tint = SoftTheme.MintTeal)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("جلسة استرخاء 🌸", color = SoftTheme.MintTeal, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
                     }
                 }
             }

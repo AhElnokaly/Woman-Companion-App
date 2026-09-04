@@ -189,6 +189,12 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 .openHelperFactory(factory)
                 .addMigrations(MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
+                .addCallback(object : RoomDatabase.Callback() {
+                    override fun onOpen(db: SupportSQLiteDatabase) {
+                        super.onOpen(db)
+                        db.execSQL("PRAGMA foreign_keys = ON;")
+                    }
+                })
                 .build()
                 INSTANCE = instance
                 instance

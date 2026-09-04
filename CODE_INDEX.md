@@ -22,11 +22,11 @@
 - **`WomanCompanionDao.kt`**: Comprehensive DAO interfaces for all CRUD operations, Flow streams, and custom analytics queries.
 - **`WomanCompanionRepository.kt`**: Clean repository abstraction bridging DAOs, SharedPreferences, and UI State.
 - **`EgyptianFoodDatabase.kt`**: Built-in Egyptian cuisine database with calorie, macronutrient, micronutrient (Iron, Calcium, Folate) data, and NLP text parsing.
-- **`GeminiService.kt` & `OfflineJouriEngine.kt`**: Local-first hybrid intelligence engine with offline rule-based matrix (>500 tips) and optional secure Gemini API integration.
+- **`GeminiService.kt` & `OfflineJouriEngine.kt`**: Local-first hybrid intelligence engine with offline rule-based matrix (>500 tips) and optional secure Gemini API integration passing keys via HTTP `x-goog-api-key` headers.
 - **`SymptomTriage.kt`**: Clinical safety triage protocol evaluating urgent medical signs (bleeding, reduced movement, severe pain) with emergency hotline actions.
 - **`WeatherService.kt`**: Location-aware weather retrieval with health and hydration recommendations.
 - **`ApiKeyRepository.kt`**: Secure Gemini API key management utilizing `EncryptedSharedPreferences`.
-- **`GitHubSyncRepository.kt`**: Remote advice matrix update sync engine.
+- **`GitHubSyncRepository.kt`**: Remote advice matrix update sync engine with safe HTTPS stream and connection management.
 
 ---
 
@@ -54,12 +54,11 @@
   - `HospitalBagScreen`: Categorized hospital packing checklist (Mom, Baby, Documents).
   - `FoodSafetyScreen`: Pregnancy food safety search database (Safe, Caution, Avoid).
   - `BackupRestoreSubScreen`: Encrypted JSON/database export and import engine.
-- **`CompanionFeatureScreens.kt`**:
-  - `PartnerSyncScreen`: Local encrypted partner link & encouraging messages.
-  - `HomePharmacyScreen`: Home medicine cabinet stock and expiration monitor.
-  - `CravingScreen`: Pregnancy craving logger and partner note generator.
-  - `NewFeaturesUpdatesBanner`: Feature discovery banner.
-  - `JouriNotificationsDialog`: Companion notifications modal.
+- **`CompanionFeatureScreens.kt`**: Lightweight facade delegating to modularized `ui/companion/` feature screens.
+- **`companion/PartnerSyncScreen.kt`**: Local encrypted partner link & encouraging messages.
+- **`companion/HomePharmacyScreen.kt`**: Home medicine cabinet stock, expiry dates, and pregnancy safety status.
+- **`companion/CravingScreen.kt`**: Pregnancy craving logger, analytical commentary, and partner message generator.
+- **`companion/JouriNotificationsAndUpdates.kt`**: Feature updates discovery banner (`NewFeaturesUpdatesBanner`), smart health alerts (`SmartAlertCard`), and notifications center (`JouriNotificationsDialog`).
 - **`PregnancyScreens.kt`**:
   - `SmartConceptionSubScreen`: Conception planner and ovulation date calculator.
   - `FetalKicksSubScreen`: Fetal kick session counter and history.
@@ -69,14 +68,29 @@
 - **`DangerSignalsScreen.kt`**: Emergency danger signs checklist with instant 123 emergency call action.
 - **`SleepAnalyzerScreen.kt`**: Sleep duration, quality breakdown, and safe sleeping postures for pregnancy.
 - **`MaonatySubScreen.kt`**: Smart pantry manager, ingredients inventory, and healthy recipe generator.
-- **`FitnessScreen.kt`**: Trimester-filtered safe workouts, animated exercise guides, and streak maintainer.
+- **`FitnessScreen.kt`**: Lightweight facade delegating to modularized `ui/fitness/` subsystem.
+- **`fitness/FitnessModels.kt`**: Specialized data models (`JouriStep`, `JouriExercise`).
+- **`fitness/FitnessDrawings.kt`**: Custom anatomical pelvic floor drawings, gear streak trackers, and exercise posture line illustrations.
+- **`fitness/JouriWorkoutTimerDialog.kt`**: Interactive countdown timer dialog with dynamic breathing cues and completion celebration.
+- **`fitness/StepPedometerDashboard.kt`**: Real-time hardware step tracking dashboard, distance/calories calculators, and 7-day canvas analytics chart.
+- **`fitness/FitnessScreen.kt`**: Main container supporting trimester filtering, category tabs, and exercise instruction modals.
 - **`AppointmentsScreen.kt`**: Prenatal doctor appointments scheduler, test reminders, and history.
 - **`JournalScreen.kt`**: Private emotional journal, mood check-ins, and thoughts recorder.
 - **`ContraceptiveScreen.kt`**: Contraceptive method tracker, side-effect correlation, and clinical guidelines.
 - **`QadaFastScreen.kt`**: Ramadan missed fasts tracker (قضاء الصيام) with progress counters.
 - **`SettingsScreen.kt`**: PIN security lock, encrypted database backup/restore, battery optimization wizard, exact alarm settings, and PDF/Text doctor report exporter.
-- **`OnboardingScreen.kt`**: 4-step modern onboarding experience with goal configuration and permission setup.
+- **`settings/BackupRestoreCard.kt`**: Dedicated encrypted database SAF export & import card with passphrase protection.
+- **`OnboardingScreen.kt`**: Main onboarding orchestrator managing 4-step wizard navigation, form state, and persistence.
+- **`onboarding/StepPersonalInfo.kt`**: Step 1 - User full name, nickname, and birth date picker.
+- **`onboarding/StepChronicDiseases.kt`**: Step 2 - Chronic diseases and preventative health profile (blood pressure, diabetes, allergies).
+- **`onboarding/StepCyclePregnancy.kt`**: Step 3 - Pregnancy status toggle and menstrual cycle tracking date selection.
+- **`onboarding/StepSummaryAndSave.kt`**: Step 4 - Health passport review summary, battery exemption guidance, and completion trigger.
 - **`JouriChatDialog.kt`**: AI Smart Companion chat dialog with conversational history and emergency symptom detection.
+- **`chat/ArabicVirtualKeyboard.kt`**: Custom Arabic on-screen virtual keyboard for quick input.
+- **`chat/CloudAiConsentDialog.kt`**: Privacy-first opt-in dialog for Google Gemini cloud AI consultation.
+- **`chat/JouriAvatarComponents.kt`**: Animated multi-state avatar (happy, attentive, reassuring, celebratory) and response skeletons.
+- **`chat/JouriChatMessageList.kt`**: High-performance lazy column message feed with specialized speech bubbles.
+- **`chat/JouriConsultationCatalog.kt`**: Interactive multi-category preset consultation chips and quick questions.
 - **`Screens.kt`**: Static reference data (`hierarchicalDatabase`, `adviceLibrary`).
 
 ---

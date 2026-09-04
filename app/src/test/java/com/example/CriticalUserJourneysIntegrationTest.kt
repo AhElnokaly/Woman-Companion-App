@@ -205,4 +205,42 @@ class CriticalUserJourneysIntegrationTest {
         assertEquals("Nausea", symptomList[0].symptom)
         assertEquals(4, symptomList[0].severity)
     }
+
+    @Test
+    fun testCascadeDeleteAdherenceLogsOnMedicationDelete() = runBlocking {
+        // Enable foreign keys on the in-memory SQLite connection
+        db.openHelper.writableDatabase.execSQL("PRAGMA foreign_keys = ON;")
+
+        val med = MedicationLog(
+            id = 0,
+            name = "Iron Supplements",
+            dosage = "1 capsule",
+            timesPerDay = 1,
+            isActive = true,
+            totalQuantity = 20,
+            remainingQuantity = 20
+        )
+        val medId = dao.insertMedication(med).toInt()
+        assertTrue(medId > 0)
+
+        val adherenceLog = MedicationAdherenceLog(
+            id = 0,
+            medicationId = medId,
+            scheduledTime = System.currentTimeMillis(),
+            actualTime = System.currentTimeMillis(),
+            status = "TAKEN"
+        )
+        dao.insertMedicationAdherenceLog(adherenceLog)
+
+        val logsBefore = dao.getAdherenceLogsForMedicationFlow(medId).first()
+        assertEquals(1, logsBefore.size)
+
+        // Delete the parent medication
+        val savedMed = dao.getAllMedicationsFlow().first().first { it.id == medId }
+        dao.deleteMedication(savedMed)
+
+        // Verify adherence logs cascade-deleted automatically
+        val logsAfter = dao.getAdherenceLogsForMedicationFlow(medId).first()
+        assertEquals(0, logsAfter.size)
+    }
 }

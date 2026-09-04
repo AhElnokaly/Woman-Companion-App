@@ -1,5 +1,6 @@
 package com.example.ui.maonaty
 
+import android.content.Intent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -12,11 +13,13 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -35,6 +38,7 @@ fun ShoppingTab(
     onAutoGenerate: () -> Unit,
     onClearAll: () -> Unit
 ) {
+    val context = LocalContext.current
     val unbought = shoppingList.filter { !it.isBought }
     val bought = shoppingList.filter { it.isBought }
 
@@ -88,6 +92,32 @@ fun ShoppingTab(
                         Text("توليد من النواقص ⚡", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = SoftTheme.DeepSlate)
                     }
 
+                    if (unbought.isNotEmpty()) {
+                        Button(
+                            onClick = {
+                                val textBuilder = StringBuilder()
+                                textBuilder.append("🛒 قائمة مشتريات مؤونتي:\n")
+                                unbought.forEachIndexed { i, item ->
+                                    textBuilder.append("${i + 1}. ${item.name} (${item.quantity} ${item.unit})\n")
+                                }
+                                val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                    putExtra(Intent.EXTRA_TEXT, textBuilder.toString())
+                                    type = "text/plain"
+                                }
+                                val shareIntent = Intent.createChooser(sendIntent, "مشاركة قائمة المشتريات")
+                                context.startActivity(shareIntent)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.DeepSlate),
+                            modifier = Modifier.weight(0.7f),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Icon(Icons.Default.Share, contentDescription = "مشاركة", tint = SoftTheme.MintTeal, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("مشاركة 📤", fontSize = 11.sp, color = SoftTheme.TextWhite)
+                        }
+                    }
+
                     OutlinedButton(
                         onClick = onClearAll,
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = SoftTheme.RedDanger),
@@ -96,7 +126,7 @@ fun ShoppingTab(
                         border = BorderStroke(1.dp, SoftTheme.RedDanger),
                         contentPadding = PaddingValues(0.dp)
                     ) {
-                        Text("مسح الكل", fontSize = 11.sp)
+                        Text("مسح", fontSize = 11.sp)
                     }
                 }
             }
