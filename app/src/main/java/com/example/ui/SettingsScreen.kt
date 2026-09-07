@@ -40,6 +40,7 @@ import com.example.util.BackupManager
 import android.widget.Toast
 import java.io.File
 import com.example.ui.settings.*
+import com.example.ui.profile.EditProfileDialog
 import com.example.viewmodel.*
 
 @Composable
@@ -208,6 +209,8 @@ fun SettingsScreen(
     var isApiKeySavedShow by remember { mutableStateOf(false) }
 
     val syncStatus by viewModel.gitHubSyncStatus.collectAsStateWithLifecycle()
+    val pregState by viewModel.pregnancyState.collectAsStateWithLifecycle()
+    var showEditProfileDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(savedApiKey) {
         savedApiKey?.let {
@@ -253,6 +256,12 @@ fun SettingsScreen(
                 }
                 Text("الإعدادات والأمان ⚙️", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite)
             }
+
+            // Profile Card (تعديل بيانات المستخدمة والصحة والاسم)
+            ProfileCard(
+                pregnancy = pregState,
+                onEditClick = { showEditProfileDialog = true }
+            )
 
             // Exact Alarm Permission Card (Android 12+)
             val alarmManager = remember { context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager }
@@ -760,6 +769,28 @@ fun SettingsScreen(
                     }
                 }
             }
+        }
+
+        if (showEditProfileDialog) {
+            EditProfileDialog(
+                currentProfile = pregState,
+                onDismiss = { showEditProfileDialog = false },
+                onSave = { motherName, nickname, birthDate, heightCm, preWeight, hasHighBp, hasLowBp, hasDiabetes, chronicOthers, babyName ->
+                    viewModel.updateFullProfile(
+                        motherName = motherName,
+                        nickname = nickname,
+                        birthDate = birthDate,
+                        heightCm = heightCm,
+                        prePregnancyWeight = preWeight,
+                        hasHighBp = hasHighBp,
+                        hasLowBp = hasLowBp,
+                        hasDiabetes = hasDiabetes,
+                        chronicOthers = chronicOthers,
+                        babyName = babyName
+                    )
+                    Toast.makeText(context, "تم حفظ بيانات الملف الشخصي بنجاح 🌸", Toast.LENGTH_SHORT).show()
+                }
+            )
         }
     }
 }

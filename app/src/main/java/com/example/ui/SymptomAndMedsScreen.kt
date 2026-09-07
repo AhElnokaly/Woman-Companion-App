@@ -48,6 +48,8 @@ fun SymptomAndMedsScreen(
     val bpLogs by viewModel.bloodPressureLogsState.collectAsStateWithLifecycle()
     val isWaterEnabled by viewModel.isWaterReminderEnabled.collectAsStateWithLifecycle()
     val adherenceLogs by viewModel.allMedicationAdherenceLogsState.collectAsStateWithLifecycle()
+    val pregnancy by viewModel.pregnancyState.collectAsStateWithLifecycle()
+    val isLowBp = pregnancy?.hasLowBp == true
 
     var showAddMedDialog by remember { mutableStateOf(false) }
     var editingMedication by remember { mutableStateOf<MedicationLog?>(null) }
@@ -365,7 +367,7 @@ fun SymptomAndMedsScreen(
                 }
             } else {
                 items(bpLogs, key = { it.id }) { log ->
-                    val status = getBpStatus(log.systolic, log.diastolic)
+                    val status = getBpStatus(log.systolic, log.diastolic, isChronicLowBp = isLowBp)
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
@@ -444,12 +446,42 @@ fun SymptomAndMedsScreen(
                                         }
                                     }
                                     if (!log.notes.isNullOrEmpty()) {
-                                        Text(
-                                            text = "📝 ملاحظة: ${log.notes}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = SoftTheme.SoftGray,
-                                            modifier = Modifier.padding(top = 4.dp)
-                                        )
+                                        if (log.notes.startsWith("💊")) {
+                                            val parts = log.notes.split(" | ", limit = 2)
+                                            val medPart = parts[0]
+                                            val notePart = parts.getOrNull(1)
+
+                                            Surface(
+                                                color = SoftTheme.MintTeal.copy(alpha = 0.15f),
+                                                shape = RoundedCornerShape(8.dp),
+                                                border = BorderStroke(1.dp, SoftTheme.MintTeal.copy(alpha = 0.3f)),
+                                                modifier = Modifier.padding(top = 6.dp)
+                                            ) {
+                                                Text(
+                                                    text = medPart,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = SoftTheme.MintTeal,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    fontSize = 11.sp,
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                                )
+                                            }
+                                            if (!notePart.isNullOrEmpty()) {
+                                                Text(
+                                                    text = "📝 $notePart",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = SoftTheme.SoftGray,
+                                                    modifier = Modifier.padding(top = 4.dp)
+                                                )
+                                            }
+                                        } else {
+                                            Text(
+                                                text = "📝 ملاحظة: ${log.notes}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = SoftTheme.SoftGray,
+                                                modifier = Modifier.padding(top = 4.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -519,6 +551,8 @@ fun SymptomAndMedsScreen(
     if (showAddBpDialog) {
         AddBloodPressureDialog(
             onDismiss = { showAddBpDialog = false },
+            isLowBp = isLowBp,
+            availableMedications = medications.filter { it.isActive }.map { it.name },
             onSave = { systolic, diastolic, pulse, notes ->
                 viewModel.addBloodPressureLog(systolic, diastolic, pulse, notes)
                 showAddBpDialog = false

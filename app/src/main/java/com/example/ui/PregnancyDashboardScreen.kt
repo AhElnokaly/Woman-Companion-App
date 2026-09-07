@@ -48,6 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.*
 import com.example.ui.theme.*
 import com.example.ui.pregnancy.*
+import com.example.ui.profile.EditProfileDialog
 import com.example.util.formatArabicDays
 import com.example.viewmodel.CycleStats
 import com.example.viewmodel.WomanCompanionViewModel
@@ -141,6 +142,7 @@ fun PregnancyDashboardScreen(
     val todayStepLog by viewModel.todayStepLogState.collectAsStateWithLifecycle()
     val appointments by viewModel.appointmentsState.collectAsStateWithLifecycle()
     val settings by viewModel.appLockSettingsState.collectAsStateWithLifecycle()
+    val medications by viewModel.allMedicationsState.collectAsStateWithLifecycle()
     
     val activeStart by viewModel.currentKickSessionStart.collectAsStateWithLifecycle()
     val currentCount by viewModel.currentKickCount.collectAsStateWithLifecycle()
@@ -153,6 +155,19 @@ fun PregnancyDashboardScreen(
     var babyGenderInput by remember { mutableStateOf(pregState?.babyGender ?: "") }
     var babyNameInput by remember { mutableStateOf(pregState?.babyName ?: "") }
     var showDeliveryDialog by remember { mutableStateOf(false) }
+    var showEditProfileDialog by remember { mutableStateOf(false) }
+    var showBreathingDialog by remember { mutableStateOf(false) }
+    var showCustomizationDialog by remember { mutableStateOf(false) }
+    var showFetalVisualizerDialog by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    var layoutRefreshKey by remember { mutableStateOf(0) }
+    val dashPrefs = remember(layoutRefreshKey) { context.getSharedPreferences("dashboard_layout_prefs", Context.MODE_PRIVATE) }
+    val showSecBabyInfo = remember(dashPrefs, layoutRefreshKey) { dashPrefs.getBoolean("sec_baby_info", true) }
+    val showSecQuickActions = remember(dashPrefs, layoutRefreshKey) { dashPrefs.getBoolean("sec_quick_actions", true) }
+    val showSecMeds = remember(dashPrefs, layoutRefreshKey) { dashPrefs.getBoolean("sec_meds", true) }
+    val showSecVitals = remember(dashPrefs, layoutRefreshKey) { dashPrefs.getBoolean("sec_vitals", true) }
+    val showSecExplore = remember(dashPrefs, layoutRefreshKey) { dashPrefs.getBoolean("sec_explore", true) }
 
     LazyColumn(
         modifier = Modifier
@@ -168,8 +183,18 @@ fun PregnancyDashboardScreen(
                 isNetworkAvailable = isNetworkAvailable,
                 weatherState = weatherState,
                 onToggleDarkMode = { viewModel.toggleDarkMode() },
-                onNavigateToSettings = onNavigateToSettings
+                onNavigateToSettings = onNavigateToSettings,
+                userName = pregState?.motherName,
+                onEditProfile = { showEditProfileDialog = true },
+                onOpenCustomization = { showCustomizationDialog = true }
             )
+        }
+
+        // Upcoming Dose Banner (نظام تنبيه الجرعة القادمة الفوري)
+        if (showSecMeds) {
+            item {
+                UpcomingDoseBanner(viewModel = viewModel)
+            }
         }
 
         item {
@@ -294,81 +319,70 @@ fun PregnancyDashboardScreen(
             ExactAlarmBannerCard()
         }
 
-        item {
-            DailyVitaminsCard(
-                viewModel = viewModel,
-                onNavigateToMeds = { onNavigateToTab(3) }
-            )
+        if (showSecMeds) {
+            item {
+                DailyVitaminsCard(
+                    viewModel = viewModel,
+                    onNavigateToMeds = { onNavigateToTab(3) }
+                )
+            }
         }
 
-        item {
-            QuickCravingLogCard(
-                viewModel = viewModel,
-                onNavigateToCraving = { onNavigateToTab(2) }
-            )
-        }
-
-        item {
-            PregnancyMythBusterCard(
-                viewModel = viewModel,
-                onNavigateToFoodSafety = { onNavigateToTab(2) },
-                onOpenJouriChat = onOpenJouriChat
-            )
-        }
-
-        item {
-            EgyptianFoodSearchWidget(
-                viewModel = viewModel,
-                onNavigateToNutrition = { onNavigateToTab(2) }
-            )
-        }
-
-        item {
-            JouriWellnessNotificationCard(
-                viewModel = viewModel,
-                onOpenJouriChat = onOpenJouriChat
-            )
+        // 🌟 Jouri Explore Cards Carousel (مجموعة بطاقات الاستكشاف الذكية في كاروسيل أفقي لتقليل التمرير الرأسي والعبء البصري)
+        if (showSecExplore) {
+            item {
+                JouriExploreCardsCarousel(
+                    viewModel = viewModel,
+                    onOpenJouriChat = onOpenJouriChat,
+                    onNavigateToTab = onNavigateToTab
+                )
+            }
         }
 
         // 🎯 Daily Progress & Briefing Card
-        item {
-            val waterGoal = viewModel.getWaterTarget()
-            val consumedWater = todayWaterLog?.amountMl ?: 0
-            val stepGoal = settings?.dailyStepTarget ?: 6000
-            val currentSteps = todayStepLog?.steps ?: 0
-            val upcomingAppt = appointments
-                .filter { it.dateTime >= System.currentTimeMillis() && !it.completed }
-                .minByOrNull { it.dateTime }
+        if (showSecVitals) {
+            item {
+                val waterGoal = viewModel.getWaterTarget()
+                val consumedWater = todayWaterLog?.amountMl ?: 0
+                val stepGoal = settings?.dailyStepTarget ?: 6000
+                val currentSteps = todayStepLog?.steps ?: 0
+                val upcomingAppt = appointments
+                    .filter { it.dateTime >= System.currentTimeMillis() && !it.completed }
+                    .minByOrNull { it.dateTime }
 
-            DailyVitalsSummaryCard(
-                consumedWater = consumedWater,
-                waterGoal = waterGoal,
-                currentSteps = currentSteps,
-                stepGoal = stepGoal,
-                upcomingAppt = upcomingAppt,
-                onNavigateToTab = onNavigateToTab
-            )
+                DailyVitalsSummaryCard(
+                    consumedWater = consumedWater,
+                    waterGoal = waterGoal,
+                    currentSteps = currentSteps,
+                    stepGoal = stepGoal,
+                    upcomingAppt = upcomingAppt,
+                    onNavigateToTab = onNavigateToTab
+                )
+            }
         }
 
         // ⚡ Quick Actions & Logging Hub
-        item {
-            val isKickActive = activeStart != null
-            PregnancyQuickActionsCard(
-                isKickActive = isKickActive,
-                currentCount = currentCount,
-                onAddWater = { viewModel.addWater(250) },
-                onOpenBpDialog = { showAddBpDialog = true },
-                onOpenJournalDialog = { showAddJournalDialog = true },
-                onKickClick = {
-                    if (isKickActive) {
-                        viewModel.incrementKickCount()
-                    } else {
-                        viewModel.startFetalKickSession()
-                    }
-                },
-                onSaveKick = { viewModel.saveFetalKickSession() },
-                onCancelKick = { viewModel.cancelFetalKickSession() }
-            )
+        if (showSecQuickActions) {
+            item {
+                val isKickActive = activeStart != null
+                PregnancyQuickActionsCard(
+                    isKickActive = isKickActive,
+                    currentCount = currentCount,
+                    onAddWater = { viewModel.addWater(250) },
+                    onOpenBpDialog = { showAddBpDialog = true },
+                    onOpenJournalDialog = { showAddJournalDialog = true },
+                    onOpenBreathingDialog = { showBreathingDialog = true },
+                    onKickClick = {
+                        if (isKickActive) {
+                            viewModel.incrementKickCount()
+                        } else {
+                            viewModel.startFetalKickSession()
+                        }
+                    },
+                    onSaveKick = { viewModel.saveFetalKickSession() },
+                    onCancelKick = { viewModel.cancelFetalKickSession() }
+                )
+            }
         }
 
         if (pregState == null || pregState?.isPregnant != true) {
@@ -480,7 +494,7 @@ fun PregnancyDashboardScreen(
                 val babyName = pregState?.babyName
                 val isGenderKnown = !babyGender.isNullOrEmpty()
                 
-                if (prog.weeks >= 14 || isGenderKnown) {
+                if (showSecBabyInfo && (prog.weeks >= 14 || isGenderKnown)) {
                     item {
                         PregnancyBabyInfoDisplayCard(
                             babyGender = babyGender,
@@ -502,7 +516,7 @@ fun PregnancyDashboardScreen(
                         activeMonthProgress = activeMonthProgress,
                         trimesterColor = trimesterColor,
                         onFetalClick = {
-                            onNavigateToTab(4) // Navigate to Tools tab
+                            showFetalVisualizerDialog = true
                         }
                     )
                 }
@@ -517,7 +531,7 @@ fun PregnancyDashboardScreen(
                         PregnancyBabyDevCard(
                             progression = prog,
                             modifier = Modifier.weight(1f),
-                            onClick = { onNavigateToTab(4) }
+                            onClick = { showFetalVisualizerDialog = true }
                         )
 
                         // Card 2: Daily Activity Sparkline (النشاط والراحة)
@@ -528,18 +542,6 @@ fun PregnancyDashboardScreen(
                             onClick = { onNavigateToTab(1) } // Navigate to Fitness/Water tab
                         )
                     }
-                }
-
-                // 📅 Next Appointment Card (موعدكِ القادم)
-                item {
-                    val upcomingAppt = appointments
-                        .filter { it.dateTime >= System.currentTimeMillis() && !it.completed }
-                        .minByOrNull { it.dateTime }
-
-                    PregnancyNextAppointmentCard(
-                        appointment = upcomingAppt,
-                        onAddOrViewAppointments = { onNavigateToTab(3) } // Navigate to Symptoms/Appointments tab
-                    )
                 }
 
                 // Post-term Pregnancy (الشهر العاشر) Supportive Card
@@ -634,6 +636,8 @@ fun PregnancyDashboardScreen(
     if (showAddBpDialog) {
         BloodPressureDialog(
             onDismiss = { showAddBpDialog = false },
+            isLowBp = pregState?.hasLowBp == true,
+            availableMedications = medications.filter { it.isActive }.map { it.name },
             onSave = { sys, dia, pulse, notes ->
                 viewModel.addBloodPressureLog(
                     systolic = sys,
@@ -679,6 +683,59 @@ fun PregnancyDashboardScreen(
                 showDeliveryDialog = false
             }
         )
+    }
+
+    // --- Profile Edit Dialog ---
+    if (showEditProfileDialog) {
+        val currentContext = LocalContext.current
+        EditProfileDialog(
+            currentProfile = pregState,
+            onDismiss = { showEditProfileDialog = false },
+            onSave = { motherName, nickname, birthDate, heightCm, preWeight, hasHighBp, hasLowBp, hasDiabetes, chronicOthers, babyName ->
+                viewModel.updateFullProfile(
+                    motherName = motherName,
+                    nickname = nickname,
+                    birthDate = birthDate,
+                    heightCm = heightCm,
+                    prePregnancyWeight = preWeight,
+                    hasHighBp = hasHighBp,
+                    hasLowBp = hasLowBp,
+                    hasDiabetes = hasDiabetes,
+                    chronicOthers = chronicOthers,
+                    babyName = babyName
+                )
+                Toast.makeText(currentContext, "تم حفظ بياناتك بنجاح 🌸", Toast.LENGTH_SHORT).show()
+                showEditProfileDialog = false
+            }
+        )
+    }
+
+    // --- SOS Guided Breathing Dialog ---
+    if (showBreathingDialog) {
+        GuidedBreathingDialog(
+            onDismiss = { showBreathingDialog = false }
+        )
+    }
+
+    // --- Dashboard Customization Dialog ---
+    if (showCustomizationDialog) {
+        DashboardCustomizationDialog(
+            onDismiss = { showCustomizationDialog = false },
+            onSettingsChanged = {
+                layoutRefreshKey++
+            }
+        )
+    }
+
+    // --- Fetal Size Visualizer Dialog ---
+    if (showFetalVisualizerDialog && progression != null) {
+        progression?.let { prog ->
+            FetalSizeVisualizerDialog(
+                weekNumber = prog.weeks,
+                babySizeFruit = prog.comparisonName,
+                onDismiss = { showFetalVisualizerDialog = false }
+            )
+        }
     }
 }
 

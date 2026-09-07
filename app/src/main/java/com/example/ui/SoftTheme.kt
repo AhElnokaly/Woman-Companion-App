@@ -19,11 +19,20 @@ object SoftTheme {
     val CardSlate: Color
         get() = AppLayers.getContainerSurface(isDark)
 
+    val CardDark: Color
+        get() = AppLayers.getContainerSurface(isDark)
+
     val LightPink: Color
         get() = if (isDark) Primitives.LightPinkGlow else Primitives.SoftRoseLight
 
     val SoftPink: Color
         get() = AppLayers.getInteractiveAccent(isDark)
+
+    val PrimaryPink: Color
+        get() = AppLayers.getInteractiveAccent(isDark)
+
+    val CardBorder: Color
+        get() = if (isDark) Color(0x33FA809F) else Color(0x22000000)
 
     val DeepPink: Color
         get() = if (isDark) Primitives.CoralRoseDark else Primitives.MagentaPinkLight

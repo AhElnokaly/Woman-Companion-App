@@ -39,11 +39,13 @@
   - 270° Horseshoe Arc radial pregnancy progress gauge with pulsing thumb indicator.
   - Interactive Bento Grid (baby organ development, live activity sparkline, next medical appointment).
   - Daily Vitals Summary Card (water intake, step progress, upcoming appointment shortcuts).
-  - Daily Vitamins Card with adherence checkboxes and quick navigation to Medication manager.
-  - Quick Craving Log Card with instant category chips and nutrition navigation.
-  - Pregnancy Myth Buster Card with expandable clinical facts and direct Jouri AI chat.
-  - Egyptian Food Search Widget with nutritional lookup.
+  - Dynamic & Expandable Daily Vitamins Card (`DailyVitaminsCard`): Connected live to Room `activeMedicationsState` and `allMedicationAdherenceLogsState`, with expand/collapse chevron animation, compact progress bar, conflict detection, and direct adherence logging.
+  - Expandable Quick Actions Card (`PregnancyQuickActionsCard`): Water log, BP dialog, Journal, SOS Breathing, and fetal kick counter with collapsible header.
+  - **`JouriExploreCardsCarousel.kt` (`pregnancy/PregnancyDashboardExploreCards.kt`)**: Horizontal swipeable carousel condensing secondary explore widgets (Jouri Tips & Weather, Myth Buster, Egyptian Food Search, Quick Craving Log) with animated dots indicator.
   - Milestone Celebrations & Past Pregnancy Memory Cards.
+  - Quick Profile Edit entry directly accessible from the header and Settings.
+- **`profile/EditProfileDialog.kt`**: Comprehensive profile editor dialog (Name, Nickname, BirthDate, Height, Pre-pregnancy Weight, BP & Diabetes conditions, Baby Name, BMI auto-calculator).
+- **`settings/ProfileCard.kt`**: Profile card in Settings screen providing summary of biometrics and quick trigger for editing.
 - **`PeriodTrackerScreen.kt`**: Menstrual cycle tracker, ovulation predictor, fertile window calculator, and multi-indicator smart calendar (Period, Pregnancy, Nifas, Ovulation).
 - **`NutritionAndWaterScreen.kt`**: Hydration tracker (dynamic daily target), NLP natural language meal logger, Egyptian food nutrition explorer, and nutrient conflict alerts.
 - **`SymptomAndMedsScreen.kt`**:
@@ -105,6 +107,9 @@
 - **`util/ArabicFormatter.kt`**: Grammatically correct Arabic plural formatting (`formatArabicDays`).
 - **`util/BackupManager.kt`**: Atomic SQLCipher database export and import with user passphrases and integrity verification.
 - **`util/PdfReportGenerator.kt`**: Formatted Arabic medical summary PDF generator for doctor appointments.
+- **`util/JouriSpeechHelper.kt`**: Text-to-speech Arabic voice manager (`JouriSpeechManager`, `rememberJouriSpeechManager`) for reading Jouri wellness tips and weather advice aloud with reassuring maternal tone.
+- **`ui/report/DoctorVisitReportDialog.kt`**: OB-GYN medical report preview and export dialog with one-click clipboard copying, Android share sheet intent, and vital records breakdown.
+- **`ui/meds/DrugConflictChecker.kt`**: Smart Drug-Nutrient conflict banner (`DrugNutrientConflictBanner`) detecting concurrent Iron and Calcium ingestion to prevent malabsorption and maternal anemia.
 
 ---
 

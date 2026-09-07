@@ -18,6 +18,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.*
 import com.example.ui.chat.JouriAvatar
 import com.example.ui.chat.JouriExpressionState
+import com.example.util.rememberJouriSpeechManager
 import com.example.viewmodel.WomanCompanionViewModel
 
 @Composable
@@ -25,6 +26,8 @@ fun JouriWellnessNotificationCard(
     viewModel: WomanCompanionViewModel,
     onOpenJouriChat: () -> Unit
 ) {
+    val speechManager = rememberJouriSpeechManager()
+    val isSpeaking by speechManager.isSpeaking
     val pregState by viewModel.pregnancyState.collectAsStateWithLifecycle()
     val waterLog by viewModel.todayWaterLogState.collectAsStateWithLifecycle()
     val periodLogs by viewModel.periodLogsState.collectAsStateWithLifecycle()
@@ -113,12 +116,36 @@ fun JouriWellnessNotificationCard(
                         )
                     }
                 }
-                // Interactive pulse dot
-                Box(
-                    modifier = Modifier
-                        .size(10.dp)
-                        .background(SoftTheme.MintTeal, CircleShape)
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Audio Listen to Jouri Advice Button
+                    Surface(
+                        onClick = {
+                            speechManager.speak(dynamicMessage)
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isSpeaking) SoftTheme.PrimaryPink.copy(alpha = 0.25f) else SoftTheme.DeepSlate,
+                        border = BorderStroke(1.dp, if (isSpeaking) SoftTheme.PrimaryPink else SoftTheme.MintTeal.copy(alpha = 0.3f)),
+                        modifier = Modifier.testTag("jouri_audio_speech_btn")
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(if (isSpeaking) "🔊 استماع..." else "🔈 اسمعي جوري", fontSize = 11.sp, color = if (isSpeaking) SoftTheme.PrimaryPink else SoftTheme.MintTeal, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    // Interactive pulse dot
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .background(if (isSpeaking) SoftTheme.PrimaryPink else SoftTheme.MintTeal, CircleShape)
+                    )
+                }
             }
             
             Text(

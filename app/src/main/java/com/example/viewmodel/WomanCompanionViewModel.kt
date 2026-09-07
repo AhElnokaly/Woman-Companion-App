@@ -206,7 +206,11 @@ class WomanCompanionViewModel(
     }
 
     // --- State Observables ---
+    private val _isInitialLoadComplete = MutableStateFlow(false)
+    val isInitialLoadComplete: StateFlow<Boolean> = _isInitialLoadComplete.asStateFlow()
+
     val pregnancyState: StateFlow<PregnancyEntity?> = repository.pregnancyFlow
+        .onEach { _isInitialLoadComplete.value = true }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val allPregnanciesState: StateFlow<List<PregnancyEntity>> = repository.allPregnanciesFlow
@@ -855,6 +859,67 @@ class WomanCompanionViewModel(
                     )
                 )
             }
+        }
+    }
+
+    /**
+     * تحديث بيانات الملف الشخصي والصحي للمستخدمة (الاسم، اللقب، تاريخ الميلاد، الطول، الوزن، والأمراض المزمنة)
+     */
+    fun updateFullProfile(
+        motherName: String,
+        nickname: String,
+        birthDate: Long?,
+        heightCm: Double?,
+        prePregnancyWeight: Double?,
+        hasHighBp: Boolean,
+        hasLowBp: Boolean,
+        hasDiabetes: Boolean,
+        chronicOthers: String,
+        babyName: String? = null
+    ) {
+        viewModelScope.launch(coroutineExceptionHandler) {
+            val existing = repository.getPregnancy()
+            val computedAge = birthDate?.let { calculateAge(it) } ?: existing?.age
+
+            val bmiCategory = if (prePregnancyWeight != null && heightCm != null && heightCm > 0) {
+                val heightM = heightCm / 100.0
+                val bmi = prePregnancyWeight / (heightM * heightM)
+                when {
+                    bmi < 18.5 -> "Underweight"
+                    bmi < 25.0 -> "Normal"
+                    bmi < 30.0 -> "Overweight"
+                    else -> "Obese"
+                }
+            } else existing?.bmiCategory
+
+            // تحديث SharedPreferences كنسخة احتياطية سريعة
+            sharedPrefs.edit().apply {
+                putString("backup_mother_name", motherName)
+                putString("backup_nickname", nickname)
+                if (birthDate != null) putLong("backup_birth_date", birthDate) else remove("backup_birth_date")
+                putBoolean("backup_has_high_bp", hasHighBp)
+                putBoolean("backup_has_low_bp", hasLowBp)
+                putBoolean("backup_has_diabetes", hasDiabetes)
+                putString("backup_chronic_others", chronicOthers)
+                apply()
+            }
+
+            val updated = (existing ?: PregnancyEntity()).copy(
+                motherName = motherName.trim(),
+                nickname = nickname.trim(),
+                birthDate = birthDate,
+                age = computedAge,
+                heightCm = heightCm,
+                prePregnancyWeight = prePregnancyWeight,
+                bmiCategory = bmiCategory,
+                hasHighBp = hasHighBp,
+                hasLowBp = hasLowBp,
+                hasDiabetes = hasDiabetes,
+                chronicOthers = chronicOthers.trim(),
+                babyName = if (!babyName.isNullOrBlank()) babyName.trim() else existing?.babyName,
+                isOnboardingCompleted = true
+            )
+            repository.savePregnancy(updated)
         }
     }
 

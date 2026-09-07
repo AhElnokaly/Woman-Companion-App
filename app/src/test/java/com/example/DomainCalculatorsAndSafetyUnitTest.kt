@@ -1,6 +1,7 @@
 package com.example
 
 import com.example.data.*
+import com.example.ui.symptoms.getBpStatus
 import com.example.util.DefaultTimeProvider
 import com.example.viewmodel.WomanCompanionCalculators
 import org.junit.Assert.*
@@ -14,6 +15,37 @@ import java.util.TimeZone
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
 class DomainCalculatorsAndSafetyUnitTest {
+
+    @Test
+    fun testGetBpStatus_StandardUser_120_80_IsNormalAndIdeal() {
+        val status = getBpStatus(systolic = 120, diastolic = 80, isChronicLowBp = false)
+        assertTrue(status.label.contains("مثالي وطبيعي"))
+        assertFalse(status.label.contains("مرحلة ١"))
+        assertFalse(status.label.contains("ما قبل الارتفاع"))
+    }
+
+    @Test
+    fun testGetBpStatus_ChronicLowBpUser_120_80_IsIdealAndBalanced() {
+        val status = getBpStatus(systolic = 120, diastolic = 80, isChronicLowBp = true)
+        assertTrue(status.label.contains("مثالي ومتوازن"))
+        assertTrue(status.advice.contains("دورتكِ الدموية نشطة"))
+    }
+
+    @Test
+    fun testGetBpStatus_ChronicLowBpUser_LowReading_ProvidesAppropriateAdvice() {
+        val status = getBpStatus(systolic = 85, diastolic = 55, isChronicLowBp = true)
+        assertTrue(status.label.contains("منخفض"))
+        assertTrue(status.advice.contains("الوقوف المفاجئ"))
+    }
+
+    @Test
+    fun testGetBpStatus_Stage1AndStage2Hypertension() {
+        val stage1 = getBpStatus(systolic = 135, diastolic = 85, isChronicLowBp = false)
+        assertTrue(stage1.label.contains("مرحلة ١"))
+
+        val stage2 = getBpStatus(systolic = 145, diastolic = 95, isChronicLowBp = false)
+        assertTrue(stage2.label.contains("مرحلة ٢"))
+    }
 
     @Test
     fun testCycleStats_DefaultWhenInsufficientLogs() {

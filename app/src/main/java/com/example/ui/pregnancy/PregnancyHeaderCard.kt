@@ -6,12 +6,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -28,6 +31,9 @@ fun PregnancyHeaderCard(
     weatherState: WeatherInfo?,
     onToggleDarkMode: () -> Unit,
     onNavigateToSettings: () -> Unit,
+    userName: String? = null,
+    onEditProfile: (() -> Unit)? = null,
+    onOpenCustomization: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
@@ -117,6 +123,34 @@ fun PregnancyHeaderCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
+                    if (onOpenCustomization != null) {
+                        IconButton(
+                            onClick = onOpenCustomization,
+                            modifier = Modifier
+                                .background(SoftTheme.DeepSlate, CircleShape)
+                                .testTag("header_customize_dashboard_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "تخصيص الواجهة",
+                                tint = SoftTheme.MintTeal
+                            )
+                        }
+                    }
+                    if (onEditProfile != null) {
+                        IconButton(
+                            onClick = onEditProfile,
+                            modifier = Modifier
+                                .background(SoftTheme.DeepSlate, CircleShape)
+                                .testTag("header_edit_profile_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = "الملف الشخصي",
+                                tint = SoftTheme.PrimaryPink
+                            )
+                        }
+                    }
                     IconButton(
                         onClick = onToggleDarkMode,
                         modifier = Modifier.background(SoftTheme.DeepSlate, CircleShape)
@@ -140,8 +174,13 @@ fun PregnancyHeaderCard(
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
+            val dedicatedGreeting = if (!userName.isNullOrBlank()) {
+                "أهلاً بكِ يا $userName 💕، رفيقتكِ $companionName معكِ لحظة بلحظة لدعم صحتكِ وراحتكِ التامة."
+            } else {
+                "صديقتكِ الوفية $companionName تسهر على راحتكِ الروحية والصحية وتدعمكِ في كل خطوة ومرحلة 💖"
+            }
             Text(
-                text = "صديقتكِ الوفية $companionName تسهر على راحتكِ الروحية والصحية وتدعمكِ في كل خطوة ومرحلة 💖",
+                text = dedicatedGreeting,
                 style = MaterialTheme.typography.bodySmall,
                 color = SoftTheme.SoftGray,
                 lineHeight = 16.sp

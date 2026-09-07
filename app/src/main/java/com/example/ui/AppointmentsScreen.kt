@@ -23,7 +23,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.ui.report.DoctorVisitReportDialog
 import com.example.viewmodel.WomanCompanionViewModel
+import com.example.viewmodel.generateMedicalReportText
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -38,6 +40,7 @@ fun AppointmentsSubScreen(viewModel: WomanCompanionViewModel) {
     var doctorInput by remember { mutableStateOf("") }
     var notesInput by remember { mutableStateOf("") }
     var selectedDateTimeMillis by remember { mutableStateOf(System.currentTimeMillis() + 3L * 24 * 60 * 60 * 1000) }
+    var showDoctorReportDialog by remember { mutableStateOf(false) }
 
     val dateTimeFormatter = remember { SimpleDateFormat("EEEE d MMMM yyyy - hh:mm a", Locale.forLanguageTag("ar")) }
 
@@ -87,17 +90,31 @@ fun AppointmentsSubScreen(viewModel: WomanCompanionViewModel) {
             }
         }
 
-        Button(
-            onClick = {
-                selectedDateTimeMillis = System.currentTimeMillis() + 3L * 24 * 60 * 60 * 1000
-                showAddApptDialog = true
-            },
-            colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
-            modifier = Modifier.fillMaxWidth().testTag("add_appt_btn")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Icon(Icons.Default.Add, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("إضافة موعد كشف جديد")
+            Button(
+                onClick = {
+                    selectedDateTimeMillis = System.currentTimeMillis() + 3L * 24 * 60 * 60 * 1000
+                    showAddApptDialog = true
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
+                modifier = Modifier.weight(1.3f).testTag("add_appt_btn")
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null)
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("موعد كشف جديد")
+            }
+
+            OutlinedButton(
+                onClick = { showDoctorReportDialog = true },
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = SoftTheme.MintTeal),
+                border = BorderStroke(1.dp, SoftTheme.MintTeal),
+                modifier = Modifier.weight(1.1f).testTag("generate_doctor_report_btn")
+            ) {
+                Text("📄 تقرير الطبيب", fontWeight = FontWeight.Bold)
+            }
         }
 
         if (appointments.isEmpty()) {
@@ -339,6 +356,14 @@ fun AppointmentsSubScreen(viewModel: WomanCompanionViewModel) {
                 }
             }
         }
+    }
+
+    if (showDoctorReportDialog) {
+        val reportText = remember { viewModel.generateMedicalReportText() }
+        DoctorVisitReportDialog(
+            reportText = reportText,
+            onDismiss = { showDoctorReportDialog = false }
+        )
     }
 }
 

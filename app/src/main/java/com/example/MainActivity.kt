@@ -173,11 +173,16 @@ class MainActivity : ComponentActivity() {
 
             MyApplicationTheme(darkTheme = isDarkTheme, dynamicColor = false) {
                 val isLocked by viewModel.isLocked.collectAsStateWithLifecycle()
+                val isInitialLoadComplete by viewModel.isInitialLoadComplete.collectAsStateWithLifecycle()
                 val pregState by viewModel.pregnancyState.collectAsStateWithLifecycle()
                 val companionName = settings?.companionName ?: "جوري"
                 
                 val isExactAlarmDenied by isExactAlarmDeniedState
                 val mainContext = LocalContext.current
+                val hasCompletedOnboardingPref = remember {
+                    mainContext.getSharedPreferences("woman_companion_prefs", Context.MODE_PRIVATE)
+                        .getBoolean("onboarding_completed_v1", false)
+                }
                 var exactAlarmDismissedUntil by remember {
                     mutableStateOf(
                         mainContext.getSharedPreferences("woman_companion_prefs", Context.MODE_PRIVATE)
@@ -202,9 +207,17 @@ class MainActivity : ComponentActivity() {
 
                 if (isLocked) {
                     AppLockScreen(viewModel = viewModel, onSuccess = {})
+                } else if (!isInitialLoadComplete && !hasCompletedOnboardingPref) {
+                    // شاشة البداية الهادئة ريثما يتم التحقق من قاعدة البيانات دون أي وميض لشاشة التهيئة
+                    AppSplashScreen()
                 } else if (pregState == null || pregState?.isOnboardingCompleted == false) {
-                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                        OnboardingScreen(viewModel = viewModel)
+                    if (hasCompletedOnboardingPref) {
+                        // الملف مسجل بالفعل في التفضيلات ولكن يتم تحميله من قاعدة البيانات
+                        AppSplashScreen()
+                    } else {
+                        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                            OnboardingScreen(viewModel = viewModel)
+                        }
                     }
                 } else {
                     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
