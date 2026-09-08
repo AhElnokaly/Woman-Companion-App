@@ -13,6 +13,7 @@ import com.example.R
 import com.example.data.AppDatabase
 import com.example.data.WaterLog
 import com.example.util.AppLogger
+import com.example.viewmodel.WomanCompanionCalculators
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
@@ -95,9 +96,10 @@ class WomanCompanionAppWidget : AppWidgetProvider() {
     private suspend fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
         val views = RemoteViews(context.packageName, R.layout.app_widget_woman_companion)
 
-        // 1. Setup Open App Intent
+        // 1. Setup Open App Intent (Default Dashboard - Tab 0)
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("target_tab", 0)
         }
         val openAppPendingIntent = PendingIntent.getActivity(
             context,
@@ -107,8 +109,35 @@ class WomanCompanionAppWidget : AppWidgetProvider() {
         )
         views.setOnClickPendingIntent(R.id.btn_open_app, openAppPendingIntent)
         views.setOnClickPendingIntent(R.id.widget_root, openAppPendingIntent)
+        views.setOnClickPendingIntent(R.id.card_status, openAppPendingIntent)
 
-        // 2. Setup Quick Water Intent
+        // 2. Setup Medication Intent (Symptoms & Meds - Tab 3)
+        val openMedsIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("target_tab", 3)
+        }
+        val openMedsPendingIntent = PendingIntent.getActivity(
+            context,
+            103,
+            openMedsIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        views.setOnClickPendingIntent(R.id.card_medication, openMedsPendingIntent)
+
+        // 3. Setup Water Card Intent (Nutrition & Water - Tab 2)
+        val openWaterIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("target_tab", 2)
+        }
+        val openWaterPendingIntent = PendingIntent.getActivity(
+            context,
+            104,
+            openWaterIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        views.setOnClickPendingIntent(R.id.card_water, openWaterPendingIntent)
+
+        // 4. Setup Quick Water Broadcast Intent (+250ml)
         val quickWaterIntent = Intent(context, WomanCompanionAppWidget::class.java).apply {
             action = ACTION_QUICK_ADD_WATER
         }
@@ -120,7 +149,7 @@ class WomanCompanionAppWidget : AppWidgetProvider() {
         )
         views.setOnClickPendingIntent(R.id.btn_quick_water, quickWaterPendingIntent)
 
-        // 3. Read Database & SharedPreferences
+        // 5. Read Database & SharedPreferences
         try {
             val sharedPrefs = context.getSharedPreferences("woman_companion_prefs", Context.MODE_PRIVATE)
             val db = AppDatabase.getDatabase(context.applicationContext)
@@ -131,26 +160,41 @@ class WomanCompanionAppWidget : AppWidgetProvider() {
             views.setTextViewText(R.id.widget_date, sdf.format(Date()))
 
             // Pregnancy / Cycle status
-            val isPregnant = sharedPrefs.getBoolean("backup_is_pregnant", true)
-            val lastPeriodDate = sharedPrefs.getLong("backup_last_period_date", 0L)
+            val dbPregnancy = dao.getPregnancy()
+            val isPregnant = dbPregnancy?.isPregnant ?: sharedPrefs.getBoolean("backup_is_pregnant", true)
+            val lastPeriodDate = dbPregnancy?.lastPeriodDate ?: sharedPrefs.getLong("backup_last_period_date", 0L)
+            val dueDate = dbPregnancy?.dueDate
 
-            if (isPregnant && lastPeriodDate > 0) {
-                val diffDays = ((System.currentTimeMillis() - lastPeriodDate) / (1000 * 60 * 60 * 24)).toInt().coerceAtLeast(0)
-                val currentWeek = (diffDays / 7) + 1
-                val daysIntoWeek = diffDays % 7
-                val monthNumber = when (currentWeek) {
-                    in 1..4 -> "الأول"
-                    in 5..8 -> "الثاني"
-                    in 9..13 -> "الثالث"
-                    in 14..17 -> "الرابع"
-                    in 18..21 -> "الخامس"
-                    in 22..26 -> "السادس"
-                    in 27..30 -> "السابع"
-                    in 31..35 -> "الثامن"
-                    else -> "التاسع"
+            val progression = if (dbPregnancy != null) {
+                WomanCompanionCalculators.getPregnancyProgression(dbPregnancy)
+            } else {
+                WomanCompanionCalculators.getPregnancyProgression(
+                    lastPeriodDate = if (lastPeriodDate > 0L) lastPeriodDate else null,
+                    dueDate = dueDate,
+                    isPregnant = isPregnant
+                )
+            }
+
+            if (isPregnant && progression != null && progression.weeks > 0) {
+                val currentWeek = progression.weeks
+                val daysIntoWeek = progression.daysIntoWeek
+                val monthProg = WomanCompanionCalculators.calculateMonthProgress(currentWeek, daysIntoWeek)
+                val monthNumber = when (monthProg.monthNumber) {
+                    1 -> "الأول"
+                    2 -> "الثاني"
+                    3 -> "الثالث"
+                    4 -> "الرابع"
+                    5 -> "الخامس"
+                    6 -> "السادس"
+                    7 -> "السابع"
+                    8 -> "الثامن"
+                    9 -> "التاسع"
+                    10 -> "العاشر"
+                    else -> "${monthProg.monthNumber}"
                 }
-                views.setTextViewText(R.id.widget_status_title, "🤰 الأسبوع $currentWeek من الحمل (الشهر $monthNumber)")
-                views.setTextViewText(R.id.widget_status_sub, "يوم $daysIntoWeek من الأسبوع • حافظي على راحتكِ وترطيبكِ 💕")
+                val daysText = if (daysIntoWeek > 0) " + $daysIntoWeek أيام" else ""
+                views.setTextViewText(R.id.widget_status_title, "🤰 الأسبوع $currentWeek$daysText (الشهر $monthNumber)")
+                views.setTextViewText(R.id.widget_status_sub, "المرحلة ${progression.trimester} • حافظي على راحتكِ وترطيبكِ 💕")
             } else {
                 views.setTextViewText(R.id.widget_status_title, "🌸 رفيقتكِ اليومية لصحة المرأة")
                 views.setTextViewText(R.id.widget_status_sub, "تتبعي دورتكِ، لياقتكِ، وأدويتكِ بكل سهولة واطمئنان ✨")

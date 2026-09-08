@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -131,7 +132,7 @@ fun PregnancyHeaderCard(
                                 .testTag("header_customize_dashboard_btn")
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Settings,
+                                imageVector = Icons.Default.Tune,
                                 contentDescription = "تخصيص الواجهة",
                                 tint = SoftTheme.MintTeal
                             )

@@ -40,6 +40,7 @@ import com.example.data.AppDatabase
 import com.example.data.WomanCompanionRepository
 import com.example.ui.*
 import com.example.ui.companion.*
+import com.example.ui.components.UpdateNotificationBanner
 import com.example.ui.theme.MyApplicationTheme
 import com.example.viewmodel.WomanCompanionViewModel
 import com.example.viewmodel.WomanCompanionViewModelFactory
@@ -61,6 +62,16 @@ import java.io.StringWriter
 class MainActivity : ComponentActivity() {
 
     private val isExactAlarmDeniedState = mutableStateOf(false)
+    private val targetTabState = mutableStateOf<Int?>(null)
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val tab = intent.getIntExtra("target_tab", -1)
+        if (tab in 0..4) {
+            targetTabState.value = tab
+        }
+    }
 
     override fun onResume() {
         super.onResume()
@@ -163,6 +174,12 @@ class MainActivity : ComponentActivity() {
             requestPermissionLauncher.launch(permissionsToRequest.toTypedArray())
         }
 
+        // Check initial intent for target_tab
+        val initialTab = intent?.getIntExtra("target_tab", -1) ?: -1
+        if (initialTab in 0..4) {
+            targetTabState.value = initialTab
+        }
+
         setContent {
             val settings by viewModel.appLockSettingsState.collectAsStateWithLifecycle()
             val isDarkTheme = settings?.isDarkMode ?: true
@@ -204,6 +221,16 @@ class MainActivity : ComponentActivity() {
                 var showJouriChat by remember { mutableStateOf(false) }
                 var showNotificationsDialog by remember { mutableStateOf(false) }
                 var hasUnreadNotifications by remember { mutableStateOf(true) }
+
+                val targetTab by targetTabState
+                LaunchedEffect(targetTab) {
+                    targetTab?.let { tabIndex ->
+                        if (tabIndex in 0 until tabsList.size) {
+                            pagerState.scrollToPage(tabIndex)
+                            targetTabState.value = null
+                        }
+                    }
+                }
 
                 if (isLocked) {
                     AppLockScreen(viewModel = viewModel, onSuccess = {})
@@ -845,6 +872,14 @@ class MainActivity : ComponentActivity() {
                                                 }
                                             }
                                         }
+                                    }
+
+                                    // GitHub In-App Update Alert Banner (appears if new release found)
+                                    if (!isViewingSettings) {
+                                        UpdateNotificationBanner(
+                                            viewModel = viewModel,
+                                            onNavigateToSettings = { isViewingSettings = true }
+                                        )
                                     }
 
                                     Box(modifier = Modifier.weight(1f)) {

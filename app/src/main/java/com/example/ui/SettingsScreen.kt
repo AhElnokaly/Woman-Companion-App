@@ -743,6 +743,9 @@ fun SettingsScreen(
             // Export & Backup Data Card (Encrypted SQLCipher DB SAF Export/Import with User Passphrase)
             BackupRestoreCard(viewModel = viewModel)
 
+            // App Updates via GitHub Card
+            AppUpdatesCard(viewModel = viewModel)
+
             // About Jouri Card
             AboutJouriCard()
 

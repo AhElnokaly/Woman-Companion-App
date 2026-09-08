@@ -34,6 +34,13 @@ data class PregnancyProgression(
     val developmentTip: String
 )
 
+data class MonthProgress(
+    val monthNumber: Int,
+    val monthName: String,
+    val progressFraction: Float,
+    val totalMonths: Int
+)
+
 data class FetalComparison(
     val name: String,
     val icon: String,
@@ -307,6 +314,91 @@ object WomanCompanionCalculators {
             comparisonIcon = comparison.icon,
             developmentTip = comparison.developmentTip
         )
+    }
+
+    fun getPregnancyProgression(
+        lastPeriodDate: Long?,
+        dueDate: Long?,
+        isPregnant: Boolean,
+        currentTime: Long = System.currentTimeMillis()
+    ): PregnancyProgression? {
+        if (!isPregnant || lastPeriodDate == null || lastPeriodDate <= 0L) return null
+        val totalDurationDays = 280L
+        val passedDays = ((currentTime - lastPeriodDate) / (24L * 60 * 60 * 1000)).coerceAtLeast(0)
+        val passedWeeks = (passedDays / 7).toInt()
+        val remainingDays = (totalDurationDays - passedDays).coerceAtLeast(0)
+
+        val currentTrimester = when {
+            passedWeeks < 13 -> 1
+            passedWeeks < 27 -> 2
+            else -> 3
+        }
+
+        val clampedWeek = passedWeeks.coerceIn(1, 42)
+        val standard = FetalStandardData.getStandardForWeek(clampedWeek)
+        val comparison = FetalComparison(
+            name = standard.fruitComparison,
+            icon = standard.icon,
+            developmentTip = standard.description
+        )
+
+        return PregnancyProgression(
+            weeks = passedWeeks,
+            daysIntoWeek = (passedDays % 7).toInt(),
+            remainingDays = remainingDays.toInt(),
+            trimester = currentTrimester,
+            dueDate = dueDate ?: (lastPeriodDate + totalDurationDays * 24 * 60 * 60 * 1000),
+            comparisonName = comparison.name,
+            comparisonIcon = comparison.icon,
+            developmentTip = comparison.developmentTip
+        )
+    }
+
+    fun calculateMonthProgress(weeks: Int, daysIntoWeek: Int): MonthProgress {
+        val ranges = listOf(
+            1 to 4,    // Month 1
+            5 to 8,    // Month 2
+            9 to 13,   // Month 3
+            14 to 17,  // Month 4
+            18 to 22,  // Month 5
+            23 to 27,  // Month 6
+            28 to 31,  // Month 7
+            32 to 35,  // Month 8
+            36 to 40,  // Month 9
+            41 to 42   // Month 10 (Post-term)
+        )
+        
+        var currentMonth = 9
+        var progressFraction = 0f
+        
+        for (i in ranges.indices) {
+            val (startWeek, endWeek) = ranges[i]
+            if (weeks in startWeek..endWeek) {
+                currentMonth = i + 1
+                val totalWeeksInMonth = (endWeek - startWeek + 1)
+                val totalDaysInMonth = totalWeeksInMonth * 7
+                val daysCompleted = ((weeks - startWeek) * 7 + daysIntoWeek).coerceIn(0, totalDaysInMonth)
+                progressFraction = daysCompleted.toFloat() / totalDaysInMonth.toFloat()
+                break
+            }
+        }
+        
+        if (weeks >= 41) {
+            currentMonth = 10
+            val daysCompleted = ((weeks - 41) * 7 + daysIntoWeek).coerceIn(0, 14)
+            progressFraction = daysCompleted.toFloat() / 14f
+        }
+        
+        val monthNames = listOf(
+            "الشهر الأول", "الشهر الثاني", "الشهر الثالث",
+            "الشهر الرابع", "الشهر الخامس", "الشهر السادس",
+            "الشهر السابع", "الشهر الثامن", "الشهر التاسع", "الشهر العاشر ⚠️"
+        )
+        
+        val name = if (currentMonth <= monthNames.size) monthNames[currentMonth - 1] else "الشهر العاشر ⚠️"
+        val total = if (weeks >= 41) 10 else 9
+        
+        return MonthProgress(currentMonth, name, progressFraction, total)
     }
 
     fun getWaterTarget(isPregnant: Boolean, extraWaterMl: Int): Int {

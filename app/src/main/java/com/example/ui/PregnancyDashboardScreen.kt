@@ -173,29 +173,99 @@ fun PregnancyDashboardScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(bottom = 80.dp)
-    ) {
-        item {
-            val companionName = settings?.companionName ?: "جوري"
-            PregnancyHeaderCard(
-                companionName = companionName,
-                isNetworkAvailable = isNetworkAvailable,
-                weatherState = weatherState,
-                onToggleDarkMode = { viewModel.toggleDarkMode() },
-                onNavigateToSettings = onNavigateToSettings,
-                userName = pregState?.motherName,
-                onEditProfile = { showEditProfileDialog = true },
-                onOpenCustomization = { showCustomizationDialog = true }
-            )
-        }
-
-        // Upcoming Dose Banner (نظام تنبيه الجرعة القادمة الفوري)
-        if (showSecMeds) {
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(bottom = 80.dp)
+        ) {
             item {
-                UpcomingDoseBanner(viewModel = viewModel)
+                val companionName = settings?.companionName ?: "جوري"
+                PregnancyHeaderCard(
+                    companionName = companionName,
+                    isNetworkAvailable = isNetworkAvailable,
+                    weatherState = weatherState,
+                    onToggleDarkMode = { viewModel.toggleDarkMode() },
+                    onNavigateToSettings = onNavigateToSettings,
+                    userName = pregState?.motherName,
+                    onEditProfile = { showEditProfileDialog = true },
+                    onOpenCustomization = { showCustomizationDialog = true }
+                )
             }
-        }
+
+            // 🌸 حالة الحمل: عرض مؤشر النمو الدائري وشبكة بينتو فوراً بعد الترحيب كأولوية بصرية أولى
+            if (pregState?.isPregnant == true && pregState?.isDelivered != true && progression != null) {
+                val prog = progression!!
+                val trimesterColor = when {
+                    prog.weeks >= 41 -> Color(0xFFFFB300) // Month 10: Gold Amber
+                    prog.trimester == 1 -> Color(0xFF9575CD) // Trimester 1: Lavender
+                    prog.trimester == 2 -> SoftTheme.MintTeal // Trimester 2: Mint Teal
+                    else -> SoftTheme.SoftPink // Trimester 3: Soft Pink
+                }
+
+                val monthProg = calculateMonthProgress(prog.weeks, prog.daysIntoWeek)
+                val activeMonth = monthProg.monthNumber
+                val activeMonthProgress = monthProg.progressFraction
+
+                // 🌸 Jouri Signature Pregnancy Radial Gauge Card
+                item {
+                    JouriPregnancyRadialGauge(
+                        progression = prog,
+                        activeMonth = activeMonth,
+                        activeMonthProgress = activeMonthProgress,
+                        trimesterColor = trimesterColor,
+                        onFetalClick = {
+                            showFetalVisualizerDialog = true
+                        }
+                    )
+                }
+
+                // 🌟 Jouri Pregnancy Bento Grid (Baby Dev + Daily Activity Sparkline)
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Card 1: Baby Development (تطور الجنين)
+                        PregnancyBabyDevCard(
+                            progression = prog,
+                            modifier = Modifier.weight(1f),
+                            onClick = { showFetalVisualizerDialog = true }
+                        )
+
+                        // Card 2: Daily Activity Sparkline (النشاط والراحة)
+                        PregnancyDailyActivityCard(
+                            steps = todayStepLog?.steps ?: 0,
+                            stepGoal = settings?.dailyStepTarget ?: 6000,
+                            modifier = Modifier.weight(1f),
+                            onClick = { onNavigateToTab(1) } // Navigate to Fitness/Water tab
+                        )
+                    }
+                }
+
+                // Baby Info (Gender & Name Display/Edit Card)
+                val babyGender = pregState?.babyGender
+                val babyName = pregState?.babyName
+                val isGenderKnown = !babyGender.isNullOrEmpty()
+                
+                if (showSecBabyInfo && (prog.weeks >= 14 || isGenderKnown)) {
+                    item {
+                        PregnancyBabyInfoDisplayCard(
+                            babyGender = babyGender,
+                            babyName = babyName,
+                            onOpenEditDialog = {
+                                babyGenderInput = babyGender ?: ""
+                                babyNameInput = babyName ?: ""
+                                showBabyInfoDialog = true
+                            }
+                        )
+                    }
+                }
+            }
+
+            // Upcoming Dose Banner (نظام تنبيه الجرعة القادمة الفوري)
+            if (showSecMeds) {
+                item {
+                    UpcomingDoseBanner(viewModel = viewModel)
+                }
+            }
 
         item {
             val currentWeeks = progression?.weeks ?: 0
@@ -475,75 +545,8 @@ fun PregnancyDashboardScreen(
                 }
             }
         } else {
-            // Pregnant View - Progression Dashboard
+            // Pregnant View - Progression Details & Late Pregnancy Actions
             progression?.let { prog ->
-                // Calculate dynamic trimester color
-                val trimesterColor = when {
-                    prog.weeks >= 41 -> Color(0xFFFFB300) // Month 10: Gold Amber
-                    prog.trimester == 1 -> Color(0xFF9575CD) // Trimester 1: Lavender
-                    prog.trimester == 2 -> SoftTheme.MintTeal // Trimester 2: Mint Teal
-                    else -> SoftTheme.SoftPink // Trimester 3: Soft Pink
-                }
-
-                val monthProg = calculateMonthProgress(prog.weeks, prog.daysIntoWeek)
-                val activeMonth = monthProg.monthNumber
-                val activeMonthProgress = monthProg.progressFraction
-
-                // Baby Info (Gender & Name Display/Edit Card)
-                val babyGender = pregState?.babyGender
-                val babyName = pregState?.babyName
-                val isGenderKnown = !babyGender.isNullOrEmpty()
-                
-                if (showSecBabyInfo && (prog.weeks >= 14 || isGenderKnown)) {
-                    item {
-                        PregnancyBabyInfoDisplayCard(
-                            babyGender = babyGender,
-                            babyName = babyName,
-                            onOpenEditDialog = {
-                                babyGenderInput = babyGender ?: ""
-                                babyNameInput = babyName ?: ""
-                                showBabyInfoDialog = true
-                            }
-                        )
-                    }
-                }
-
-                // 🌸 Jouri Signature Pregnancy Radial Gauge Card
-                item {
-                    JouriPregnancyRadialGauge(
-                        progression = prog,
-                        activeMonth = activeMonth,
-                        activeMonthProgress = activeMonthProgress,
-                        trimesterColor = trimesterColor,
-                        onFetalClick = {
-                            showFetalVisualizerDialog = true
-                        }
-                    )
-                }
-
-                // 🌟 Jouri Pregnancy Bento Grid (Baby Dev + Daily Activity Sparkline)
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Card 1: Baby Development (تطور الجنين)
-                        PregnancyBabyDevCard(
-                            progression = prog,
-                            modifier = Modifier.weight(1f),
-                            onClick = { showFetalVisualizerDialog = true }
-                        )
-
-                        // Card 2: Daily Activity Sparkline (النشاط والراحة)
-                        PregnancyDailyActivityCard(
-                            steps = todayStepLog?.steps ?: 0,
-                            stepGoal = settings?.dailyStepTarget ?: 6000,
-                            modifier = Modifier.weight(1f),
-                            onClick = { onNavigateToTab(1) } // Navigate to Fitness/Water tab
-                        )
-                    }
-                }
-
                 // Post-term Pregnancy (الشهر العاشر) Supportive Card
                 if (prog.weeks >= 40) {
                     item {

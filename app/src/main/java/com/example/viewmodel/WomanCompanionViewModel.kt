@@ -13,6 +13,9 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.*
 import com.example.reminder.ReminderScheduler
+import com.example.util.GitHubAppUpdater
+import com.example.util.GitHubReleaseInfo
+import com.example.util.UpdateStatus
 import com.example.widget.WomanCompanionAppWidget
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.flow.*
@@ -384,6 +387,55 @@ class WomanCompanionViewModel(
     private val _isGitHubUpdateAvailable = MutableStateFlow(false)
     val isGitHubUpdateAvailable: StateFlow<Boolean> = _isGitHubUpdateAvailable.asStateFlow()
 
+    // --- GitHub APK In-App Updater State ---
+    private val _appUpdateStatus = MutableStateFlow<UpdateStatus>(UpdateStatus.Idle)
+    val appUpdateStatus: StateFlow<UpdateStatus> = _appUpdateStatus.asStateFlow()
+
+    fun checkForAppUpdates(manual: Boolean = false) {
+        viewModelScope.launch(coroutineExceptionHandler) {
+            _appUpdateStatus.value = UpdateStatus.Checking
+            val result = GitHubAppUpdater.checkForUpdates()
+            result.onSuccess { releaseInfo ->
+                if (releaseInfo != null && releaseInfo.hasUpdate) {
+                    _appUpdateStatus.value = UpdateStatus.UpdateAvailable(releaseInfo)
+                } else {
+                    _appUpdateStatus.value = UpdateStatus.NoUpdateAvailable
+                }
+            }.onFailure { error ->
+                if (manual) {
+                    _appUpdateStatus.value = UpdateStatus.Error("تعذر الاتصال بـ GitHub للتحقق من التحديثات: ${error.localizedMessage ?: "خطأ غير معروف"}")
+                } else {
+                    _appUpdateStatus.value = UpdateStatus.Idle
+                }
+            }
+        }
+    }
+
+    fun downloadAndInstallAppUpdate(context: Context, releaseInfo: GitHubReleaseInfo) {
+        viewModelScope.launch(coroutineExceptionHandler) {
+            _appUpdateStatus.value = UpdateStatus.Downloading(0)
+            val downloadResult = GitHubAppUpdater.downloadApk(
+                context = context,
+                downloadUrl = releaseInfo.downloadUrl,
+                targetFileName = releaseInfo.fileName
+            ) { progress ->
+                _appUpdateStatus.value = UpdateStatus.Downloading(progress)
+            }
+
+            downloadResult.onSuccess { apkFile ->
+                _appUpdateStatus.value = UpdateStatus.ReadyToInstall(apkFile)
+                // تشغيل شاشة التثبيت فوراً للمستخدم
+                GitHubAppUpdater.launchApkInstaller(context, apkFile)
+            }.onFailure { err ->
+                _appUpdateStatus.value = UpdateStatus.Error("فشل تحميل ملف التحديث: ${err.localizedMessage}")
+            }
+        }
+    }
+
+    fun launchUpdateInstaller(context: Context, apkFile: java.io.File) {
+        GitHubAppUpdater.launchApkInstaller(context, apkFile)
+    }
+
     fun checkForGitHubUpdates() {
         viewModelScope.launch(coroutineExceptionHandler) {
             try {
@@ -491,6 +543,7 @@ class WomanCompanionViewModel(
         refreshWeather()
         // Check for updates on GitHub on launch
         checkForGitHubUpdates()
+        checkForAppUpdates(manual = false)
     }
 
     fun refreshWeather(lat: Double = 30.0444, lon: Double = 31.2357) {
@@ -654,6 +707,7 @@ class WomanCompanionViewModel(
                 isOnboardingCompleted = true
             )
             repository.savePregnancy(updated)
+            WomanCompanionAppWidget.updateAllWidgets(getApplication())
         }
     }
 
@@ -744,6 +798,7 @@ class WomanCompanionViewModel(
                 isOnboardingCompleted = true
             )
             repository.savePregnancy(updated)
+            WomanCompanionAppWidget.updateAllWidgets(getApplication())
         }
     }
 
@@ -760,6 +815,7 @@ class WomanCompanionViewModel(
                 isOnboardingCompleted = true
             )
             repository.savePregnancy(updated)
+            WomanCompanionAppWidget.updateAllWidgets(getApplication())
         }
     }
 
@@ -768,6 +824,7 @@ class WomanCompanionViewModel(
     fun clearPregnancy() {
         viewModelScope.launch(coroutineExceptionHandler) {
             repository.deletePregnancy()
+            WomanCompanionAppWidget.updateAllWidgets(getApplication())
         }
     }
 
@@ -782,6 +839,7 @@ class WomanCompanionViewModel(
                         userPhase = "period"
                     )
                 )
+                WomanCompanionAppWidget.updateAllWidgets(getApplication())
             }
         }
     }
@@ -845,6 +903,7 @@ class WomanCompanionViewModel(
                     bmiCategory = existing?.bmiCategory
                 )
             )
+            WomanCompanionAppWidget.updateAllWidgets(getApplication())
 
             // Also automatically add a PeriodLog if user entered lastPeriodDate
             if (lastPeriodDate != null) {
@@ -920,6 +979,7 @@ class WomanCompanionViewModel(
                 isOnboardingCompleted = true
             )
             repository.savePregnancy(updated)
+            WomanCompanionAppWidget.updateAllWidgets(getApplication())
         }
     }
 
