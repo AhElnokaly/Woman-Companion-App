@@ -297,6 +297,10 @@ class WomanCompanionViewModel(
     val allFetalGrowthLogsState: StateFlow<List<FetalGrowthLog>> = repository.allFetalGrowthLogsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // --- تتبع وزن الأم أثناء الحمل (Maternal Weight Tracker State) ---
+    val allMaternalWeightLogsState: StateFlow<List<MaternalWeightLog>> = repository.allMaternalWeightLogsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     // --- مدة النفاس بالأيام (Configurable Nifas Duration Days State) ---
     private val _nifasDurationDaysState = MutableStateFlow(sharedPrefs.getInt("nifas_duration_days", 40))
     val nifasDurationDaysState: StateFlow<Int> = _nifasDurationDaysState.asStateFlow()
@@ -983,6 +987,32 @@ class WomanCompanionViewModel(
         }
     }
 
+    fun updatePrePregnancyWeightAndHeight(preWeight: Double?, heightCm: Double?) {
+        viewModelScope.launch(coroutineExceptionHandler) {
+            val existing = repository.getPregnancy()
+            val effectiveHeight = heightCm ?: existing?.heightCm
+            val effectiveWeight = preWeight ?: existing?.prePregnancyWeight
+            val bmiCategory = if (effectiveWeight != null && effectiveHeight != null && effectiveHeight > 0) {
+                val heightM = effectiveHeight / 100.0
+                val bmi = effectiveWeight / (heightM * heightM)
+                when {
+                    bmi < 18.5 -> "Underweight"
+                    bmi < 25.0 -> "Normal"
+                    bmi < 30.0 -> "Overweight"
+                    else -> "Obese"
+                }
+            } else existing?.bmiCategory
+
+            val updated = (existing ?: PregnancyEntity(isPregnant = true)).copy(
+                prePregnancyWeight = effectiveWeight,
+                heightCm = effectiveHeight,
+                bmiCategory = bmiCategory
+            )
+            repository.savePregnancy(updated)
+            WomanCompanionAppWidget.updateAllWidgets(getApplication())
+        }
+    }
+
     // Period log CRUD
     fun addPeriodLog(startDate: Long, endDate: Long?, intensity: String, symptoms: List<String>, painLevel: Int, notes: String?) {
         viewModelScope.launch(coroutineExceptionHandler) {
@@ -1332,6 +1362,42 @@ class WomanCompanionViewModel(
                     notes = notes
                 )
             )
+        }
+    }
+
+    fun addMaternalWeightLog(week: Int, weightKg: Double, notes: String? = null) {
+        viewModelScope.launch(coroutineExceptionHandler) {
+            val activePregnancy = pregnancyState.value
+            val targetPregnancyId = if (activePregnancy != null && activePregnancy.isPregnant) {
+                activePregnancy.id
+            } else {
+                val all = repository.allPregnanciesFlow.firstOrNull() ?: emptyList()
+                val current = all.firstOrNull { it.isPregnant } ?: all.firstOrNull()
+                current?.id ?: run {
+                    val defaultLmp = System.currentTimeMillis() - (week.toLong() * 7L * 24L * 60L * 60L * 1000L)
+                    val newId = repository.savePregnancy(
+                        PregnancyEntity(
+                            lastPeriodDate = defaultLmp,
+                            isPregnant = true
+                        )
+                    ).toInt()
+                    newId
+                }
+            }
+            repository.insertMaternalWeightLog(
+                MaternalWeightLog(
+                    pregnancyId = targetPregnancyId,
+                    pregnancyWeek = week,
+                    weightKg = weightKg,
+                    notes = notes
+                )
+            )
+        }
+    }
+
+    fun deleteMaternalWeightLog(log: MaternalWeightLog) {
+        viewModelScope.launch(coroutineExceptionHandler) {
+            repository.deleteMaternalWeightLog(log)
         }
     }
 

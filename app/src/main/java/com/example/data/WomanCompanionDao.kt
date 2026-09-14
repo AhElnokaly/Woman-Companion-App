@@ -352,4 +352,20 @@ interface WomanCompanionDao {
 
     @Delete
     suspend fun deleteContraceptiveMethod(method: ContraceptiveMethod)
+
+    // --- تتبع وزن الأم أثناء الحمل (Maternal Weight Tracker) ---
+    @Query("SELECT * FROM maternal_weight_logs ORDER BY pregnancyWeek ASC")
+    fun getAllMaternalWeightLogsFlow(): Flow<List<MaternalWeightLog>>
+
+    @Query("SELECT * FROM maternal_weight_logs WHERE pregnancyId = :pregnancyId ORDER BY pregnancyWeek ASC")
+    fun getMaternalWeightLogsForPregnancyFlow(pregnancyId: Int): Flow<List<MaternalWeightLog>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMaternalWeightLog(log: MaternalWeightLog)
+
+    @Delete
+    suspend fun deleteMaternalWeightLog(log: MaternalWeightLog)
+
+    @Query("DELETE FROM maternal_weight_logs")
+    suspend fun clearMaternalWeightLogs()
 }

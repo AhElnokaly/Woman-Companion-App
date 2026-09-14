@@ -18,7 +18,7 @@ import androidx.compose.ui.window.Dialog
 import com.example.data.PeriodLog
 import com.example.data.PregnancyEntity
 import com.example.ui.formatGregorianDate
-import com.example.ui.theme.SoftTheme
+import com.example.ui.SoftTheme
 import java.util.Calendar
 
 @Composable

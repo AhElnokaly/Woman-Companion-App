@@ -16,7 +16,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.EgyptianFoodRepository
-import com.example.ui.theme.SoftTheme
+import com.example.ui.SoftTheme
+import com.example.ui.theme.ModernHealthTokens
 import com.example.viewmodel.WomanCompanionViewModel
 
 @Composable
@@ -52,7 +53,8 @@ fun EgyptianFoodSearchWidget(
         modifier = Modifier.fillMaxWidth().testTag("egyptian_food_search_widget"),
         colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
         shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, SoftTheme.SoftPink.copy(alpha = 0.2f))
+        border = BorderStroke(1.dp, SoftTheme.CardBorder),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
@@ -88,12 +90,12 @@ fun EgyptianFoodSearchWidget(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = SoftTheme.SoftPink,
-                    unfocusedBorderColor = SoftTheme.SoftGray.copy(alpha = 0.3f),
-                    focusedContainerColor = SoftTheme.DeepSlate,
-                    unfocusedContainerColor = SoftTheme.DeepSlate,
-                    focusedTextColor = SoftTheme.TextWhite,
-                    unfocusedTextColor = SoftTheme.TextWhite
+                    focusedBorderColor = SoftTheme.MintTeal,
+                    unfocusedBorderColor = SoftTheme.CardBorder,
+                    focusedContainerColor = if (SoftTheme.isDark) SoftTheme.DeepSlate else ModernHealthTokens.CardWhite,
+                    unfocusedContainerColor = if (SoftTheme.isDark) SoftTheme.DeepSlate else ModernHealthTokens.CardWhite,
+                    focusedTextColor = SoftTheme.TextPrimary,
+                    unfocusedTextColor = SoftTheme.TextPrimary
                 ),
                 singleLine = true
             )
@@ -104,11 +106,17 @@ fun EgyptianFoodSearchWidget(
                         selected = selectedCategory == catKey,
                         onClick = { selectedCategory = catKey },
                         label = { Text(catLabel, fontSize = 11.sp) },
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = selectedCategory == catKey,
+                            borderColor = SoftTheme.CardBorder,
+                            selectedBorderColor = SoftTheme.SoftPink
+                        ),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = SoftTheme.SoftPink,
                             selectedLabelColor = Color.White,
                             containerColor = SoftTheme.DeepSlate,
-                            labelColor = SoftTheme.TextWhite
+                            labelColor = SoftTheme.TextPrimary
                         )
                     )
                 }
@@ -119,7 +127,8 @@ fun EgyptianFoodSearchWidget(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = SoftTheme.DeepSlate),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, SoftTheme.CardBorder)
                     ) {
                         Row(
                             modifier = Modifier.padding(12.dp),
@@ -127,7 +136,7 @@ fun EgyptianFoodSearchWidget(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(food.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite)
+                                Text(food.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = SoftTheme.TextPrimary)
                                 Text(
                                     "${food.calories} سعرة | بروتين: ${food.protein}g | حديد: ${food.ironMg}mg | كالسيوم: ${food.calciumMg}mg",
                                     fontSize = 10.sp,
@@ -170,11 +179,19 @@ fun EgyptianFoodSearchWidget(
 
             Button(
                 onClick = onNavigateToNutrition,
-                colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.DeepSlate),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (SoftTheme.isDark) SoftTheme.DeepSlate else ModernHealthTokens.AccentMint
+                ),
+                border = BorderStroke(1.dp, SoftTheme.CardBorder),
                 modifier = Modifier.fillMaxWidth().testTag("goto_nutrition_tab_btn"),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("عرض سجل الوجبات والسعرات الكامل 🥗 ↗", color = SoftTheme.MintTeal, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    "عرض سجل الوجبات والسعرات الكامل 🥗 ↗",
+                    color = if (SoftTheme.isDark) SoftTheme.MintTeal else ModernHealthTokens.PrimaryTeal,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }

@@ -339,6 +339,28 @@ data class ContraceptiveMethod(
     val notes: String? = null          // ملاحظات إضافية
 )
 
+// --- الكيان الجديد: تتبع وزن الأم أثناء الحمل (Maternal Weight Tracker) ---
+@Entity(
+    tableName = "maternal_weight_logs",
+    foreignKeys = [
+        androidx.room.ForeignKey(
+            entity = PregnancyEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["pregnancyId"],
+            onDelete = androidx.room.ForeignKey.CASCADE
+        )
+    ],
+    indices = [androidx.room.Index("pregnancyId")]
+)
+data class MaternalWeightLog(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val pregnancyId: Int,
+    val date: Long = System.currentTimeMillis(),
+    val pregnancyWeek: Int,              // أسبوع الحمل المسجل فيه الوزن
+    val weightKg: Double,                // وزن الأم بالكيلوجرام
+    val notes: String? = null            // ملاحظات إضافية
+)
+
 data class ContraceptiveSymptomContext(
     val methodType: String,
     val methodTypeName: String,

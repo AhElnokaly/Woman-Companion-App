@@ -57,7 +57,7 @@ fun JouriExploreCardsCarousel(
                 Text(
                     text = "استكشاف جوري الذكي 💡",
                     fontWeight = FontWeight.Bold,
-                    color = SoftTheme.TextWhite,
+                    color = SoftTheme.TextPrimary,
                     style = MaterialTheme.typography.titleMedium,
                     fontSize = 15.sp
                 )
@@ -70,12 +70,12 @@ fun JouriExploreCardsCarousel(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
-                        .background(SoftTheme.PrimaryPink.copy(alpha = 0.15f))
+                        .background(SoftTheme.MintAccent)
                         .padding(horizontal = 8.dp, vertical = 2.dp)
                 ) {
                     Text(
                         text = badgeTitle,
-                        color = SoftTheme.PrimaryPink,
+                        color = SoftTheme.EmeraldPrimary,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -94,7 +94,7 @@ fun JouriExploreCardsCarousel(
                             .size(width = if (isSelected) 18.dp else 6.dp, height = 6.dp)
                             .clip(CircleShape)
                             .background(
-                                if (isSelected) SoftTheme.PrimaryPink else SoftTheme.CardBorder.copy(alpha = 0.6f)
+                                if (isSelected) SoftTheme.EmeraldPrimary else SoftTheme.CardBorder.copy(alpha = 0.6f)
                             )
                     )
                 }

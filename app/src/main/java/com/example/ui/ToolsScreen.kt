@@ -70,6 +70,7 @@ fun ToolsScreen(
             list.add(Triple("qada", "قضاء أيام الصيام 🌙", "عداد أيام الصيام المتبقية عليك لقضائها"))
         }
         
+        list.add(Triple("health_analytics", "التحليلات والتقارير التنبؤية 📈🔮", "رصد الارتباطات الحيوية بين شرب الماء والأعراض وجودة النوم والتقرير الطبي"))
         list.add(Triple("pregnancy_history", "سجل الأحمال والولادات 📜", "تصفح وتتبع سجل جميع الأحمال السابقة والولادات في مكان واحد"))
         list.add(Triple("sleep_analyzer", "محلل ومراقب النوم الذكي 🌙💤", "تتبع وتحليل جودة نومك اليومي وأثره على صحتك الحيوية"))
         list.add(Triple("maonaty", "مؤونتي الذكية لإدارة المنزل 📦🍳", "إدارة مخزون مطبخك، مشترياتك، وصفاتك الذكية، ومهام الترتيب المنزلي"))
@@ -185,6 +186,7 @@ fun ToolsScreen(
                 }
 
                 when (selectedToolSubScreen) {
+                    "health_analytics" -> HealthAnalyticsSubScreen(viewModel, onBackClick = { selectedToolSubScreen = null; viewModel.setActiveSubScreen(null) })
                     "pregnancy_history" -> PregnancyHistoryScreen(viewModel, onBack = { selectedToolSubScreen = null; viewModel.setActiveSubScreen(null) })
                     "maonaty" -> MaonatySubScreen(viewModel)
                     "fitness" -> FitnessScreen(viewModel)

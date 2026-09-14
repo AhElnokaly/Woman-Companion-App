@@ -105,7 +105,23 @@ val MIGRATION_16_17 = object : Migration(16, 17) {
     }
 }
 
-// Version 17 ships with explicit MIGRATION_16_17.
+val MIGRATION_17_18 = object : Migration(17, 18) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `maternal_weight_logs` (" +
+            "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+            "`pregnancyId` INTEGER NOT NULL, " +
+            "`date` INTEGER NOT NULL, " +
+            "`pregnancyWeek` INTEGER NOT NULL, " +
+            "`weightKg` REAL NOT NULL, " +
+            "`notes` TEXT, " +
+            "FOREIGN KEY(`pregnancyId`) REFERENCES `pregnancy`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)"
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_maternal_weight_logs_pregnancyId` ON `maternal_weight_logs` (`pregnancyId`)")
+    }
+}
+
+// Version 18 ships with explicit MIGRATION_17_18.
 @Database(
     entities = [
         PregnancyEntity::class,
@@ -131,9 +147,10 @@ val MIGRATION_16_17 = object : Migration(16, 17) {
         MaonatyShoppingItem::class,
         MaonatyHouseholdTask::class,
         FetalGrowthLog::class,
-        ContraceptiveMethod::class
+        ContraceptiveMethod::class,
+        MaternalWeightLog::class
     ],
-    version = 17,
+    version = 18,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -188,7 +205,7 @@ abstract class AppDatabase : RoomDatabase() {
                     "woman_companion_database"
                 )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
+                .addMigrations(MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18)
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onOpen(db: SupportSQLiteDatabase) {
                         super.onOpen(db)

@@ -2,6 +2,7 @@ package com.example.ui.pregnancy
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -24,7 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.viewmodel.PregnancyProgression
 import com.example.ui.calculateMonthProgress
-import com.example.ui.theme.SoftTheme
+import com.example.ui.SoftTheme
+import com.example.ui.theme.ModernHealthTokens
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -40,7 +42,9 @@ fun PregnancyBabyInfoCard(
         Card(
             modifier = modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-            shape = RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, SoftTheme.CardBorder),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Row(
                 modifier = Modifier.padding(12.dp).fillMaxWidth(),
@@ -91,7 +95,9 @@ fun PregnancyBabyInfoCard(
         Card(
             modifier = modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-            shape = RoundedCornerShape(24.dp)
+            shape = RoundedCornerShape(24.dp),
+            border = BorderStroke(1.dp, SoftTheme.CardBorder),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Column(
                 modifier = Modifier.padding(20.dp),
@@ -130,7 +136,10 @@ fun PregnancyBabyInfoCard(
                 )
                 Button(
                     onClick = onEditBabyInfo,
-                    colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.DeepSlate),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (SoftTheme.isDark) SoftTheme.DeepSlate else ModernHealthTokens.AccentMint
+                    ),
+                    border = BorderStroke(1.dp, SoftTheme.CardBorder),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -160,7 +169,9 @@ fun PregnancyProgressCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-        shape = RoundedCornerShape(28.dp)
+        shape = RoundedCornerShape(28.dp),
+        border = BorderStroke(1.dp, SoftTheme.CardBorder),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier.padding(24.dp),
@@ -259,6 +270,7 @@ fun PregnancyProgressCard(
                                 .height(10.dp)
                                 .clip(RoundedCornerShape(5.dp))
                                 .background(SoftTheme.DeepSlate)
+                                .border(0.5.dp, SoftTheme.CardBorder, RoundedCornerShape(5.dp))
                         ) {
                             if (segProgress > 0f) {
                                 Box(

@@ -94,6 +94,7 @@ fun PeriodTrackerScreen(
 
     // +++ أضيف بناءً على طلبك لتتبع الحمل والولادة بشكل ديناميكي +++
     var showBabyInfoDialog by remember { mutableStateOf(false) }
+    var showStartPregnancySetupDialog by remember { mutableStateOf(false) }
     var babyGenderInput by remember(isPregnant) { mutableStateOf(isPregnant?.babyGender ?: "") }
     var babyNameInput by remember(isPregnant) { mutableStateOf(isPregnant?.babyName ?: "") }
     var showDeliveryDialog by remember { mutableStateOf(false) }
@@ -176,40 +177,92 @@ fun PeriodTrackerScreen(
                         nextPeriodPredictedStart = nextStartPredicted
                     )
                 }
-            }
 
-            val irregularityNotices = viewModel.detectCycleIrregularityPatterns()
-            if (irregularityNotices.isNotEmpty()) {
-                items(irregularityNotices) { notice ->
+                val irregularityNotices = viewModel.detectCycleIrregularityPatterns()
+                if (irregularityNotices.isNotEmpty()) {
+                    items(irregularityNotices) { notice ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("cycle_irregularity_notice_card_${notice.id}"),
+                            colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
+                            shape = RoundedCornerShape(20.dp),
+                            border = BorderStroke(1.dp, SoftTheme.SoftPink.copy(alpha = 0.3f))
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text("🌸", fontSize = 24.sp)
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = notice.title,
+                                        fontWeight = FontWeight.Bold,
+                                        color = SoftTheme.SoftPink,
+                                        fontSize = 15.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = notice.message,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = SoftTheme.TextWhite
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 🤰 بطاقة الانتقال السلس لوضع الحمل
+                item {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .testTag("cycle_irregularity_notice_card_${notice.id}"),
+                            .clickable { showStartPregnancySetupDialog = true }
+                            .testTag("start_pregnancy_mode_card"),
                         colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
                         shape = RoundedCornerShape(20.dp),
-                        border = BorderStroke(1.dp, SoftTheme.SoftPink.copy(alpha = 0.3f))
+                        border = BorderStroke(1.5.dp, SoftTheme.MintTeal.copy(alpha = 0.5f))
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            Text("🌸", fontSize = 24.sp)
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(SoftTheme.MintAccent),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("🤰", fontSize = 24.sp)
+                            }
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = notice.title,
+                                    text = "أنا حامل الآن 🤰✨",
+                                    style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = SoftTheme.SoftPink,
-                                    fontSize = 15.sp
+                                    color = SoftTheme.SoftPink
                                 )
-                                Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = notice.message,
+                                    text = "انتقلي لوضع تتبع الحمل لمتابعة نمو جنينكِ أسبوعاً بأسبوع وحساب موعد الولادة المتوقع.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = SoftTheme.TextWhite
                                 )
+                            }
+                            Button(
+                                onClick = { showStartPregnancySetupDialog = true },
+                                colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.MintTeal),
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text("ابدئي", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
                             }
                         }
                     }
@@ -568,34 +621,36 @@ fun PeriodTrackerScreen(
                 }
 
                 item {
-                    D3NativeDashboard(periodLogs = periodLogs, stats = stats)
+                    D3NativeDashboard(periodLogs = periodLogs, stats = stats, viewModel = viewModel)
                 }
             }
 
-            // Smart Interactive Calendar Component
-            item {
-                PeriodCalendarSection(
-                    periodLogs = periodLogs,
-                    isPregnant = isPregnant,
-                    allPregnancies = allPregnancies,
-                    nifasDurationDays = nifasDurationDays,
-                    predictedPeriods = predictedPeriods,
-                    predictedOvulations = predictedOvulations,
-                    onDaySelected = { dayTime ->
-                        useCustomStartDate = dayTime
-                        useCustomEndDate = dayTime + 5L * 24 * 60 * 60 * 1000
-                        useSpecificDateRange = true
-                        showAddPeriodDialog = true
-                    }
-                )
-            }
+            // Smart Interactive Calendar Component (Cycle Mode Only)
+            if (isPregnant?.isPregnant != true) {
+                item {
+                    PeriodCalendarSection(
+                        periodLogs = periodLogs,
+                        isPregnant = isPregnant,
+                        allPregnancies = allPregnancies,
+                        nifasDurationDays = nifasDurationDays,
+                        predictedPeriods = predictedPeriods,
+                        predictedOvulations = predictedOvulations,
+                        onDaySelected = { dayTime ->
+                            useCustomStartDate = dayTime
+                            useCustomEndDate = dayTime + 5L * 24 * 60 * 60 * 1000
+                            useSpecificDateRange = true
+                            showAddPeriodDialog = true
+                        }
+                    )
+                }
 
-            // History List Section
-            item {
-                PeriodHistorySection(
-                    periodLogs = periodLogs,
-                    onDeleteLog = { log -> viewModel.deletePeriod(log) }
-                )
+                // History List Section
+                item {
+                    PeriodHistorySection(
+                        periodLogs = periodLogs,
+                        onDeleteLog = { log -> viewModel.deletePeriod(log) }
+                    )
+                }
             }
         }
     }
@@ -688,6 +743,17 @@ fun PeriodTrackerScreen(
                 viewModel.switchToPeriodTracking()
             },
             onDismiss = { showLossSupportDialog = false }
+        )
+    }
+
+    if (showStartPregnancySetupDialog) {
+        PregnancySetupDialog(
+            periodLogs = periodLogs,
+            onDismiss = { showStartPregnancySetupDialog = false },
+            onSave = { date, weight, height ->
+                viewModel.setPregnancy(date, weight, height)
+                showStartPregnancySetupDialog = false
+            }
         )
     }
 }

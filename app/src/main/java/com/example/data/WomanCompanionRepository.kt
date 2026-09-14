@@ -145,6 +145,13 @@ class WomanCompanionRepository(private val dao: WomanCompanionDao) {
     suspend fun updateContraceptiveMethod(method: ContraceptiveMethod) = dao.updateContraceptiveMethod(method)
     suspend fun deleteContraceptiveMethod(method: ContraceptiveMethod) = dao.deleteContraceptiveMethod(method)
 
+    // --- تتبع وزن الأم أثناء الحمل (Maternal Weight Tracker) ---
+    val allMaternalWeightLogsFlow: Flow<List<MaternalWeightLog>> = dao.getAllMaternalWeightLogsFlow()
+    fun getMaternalWeightLogsForPregnancyFlow(pregnancyId: Int): Flow<List<MaternalWeightLog>> = dao.getMaternalWeightLogsForPregnancyFlow(pregnancyId)
+    suspend fun insertMaternalWeightLog(log: MaternalWeightLog) = dao.insertMaternalWeightLog(log)
+    suspend fun deleteMaternalWeightLog(log: MaternalWeightLog) = dao.deleteMaternalWeightLog(log)
+    suspend fun clearMaternalWeightLogs() = dao.clearMaternalWeightLogs()
+
     // --- Factory Reset ---
     suspend fun factoryReset() {
         dao.deletePregnancy()
@@ -168,6 +175,7 @@ class WomanCompanionRepository(private val dao: WomanCompanionDao) {
         dao.clearShoppingList()
         dao.clearHouseholdTasks()
         dao.clearFetalGrowthLogs()
+        dao.clearMaternalWeightLogs()
         // Reset app lock settings to default
         dao.insertAppLockSettings(AppLockSettings(pinHash = null, isLockEnabled = false, isStealthModeEnabled = false, companionName = "جوري", dailyStepTarget = 6000))
     }

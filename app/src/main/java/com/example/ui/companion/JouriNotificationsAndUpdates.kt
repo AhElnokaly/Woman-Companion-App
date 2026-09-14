@@ -660,29 +660,6 @@ fun JouriNotificationsDialog(
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
-
-                    // Bottom Pill Button - "جوري صديقتكِ الذكية 🌸"
-                    Button(
-                        onClick = onDismiss,
-                        colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
-                        shape = RoundedCornerShape(50.dp),
-                        modifier = Modifier
-                            .fillMaxWidth(0.85f)
-                            .align(Alignment.CenterHorizontally)
-                            .height(48.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = "جوري صديقتكِ الذكية 🌸",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = SoftTheme.TextWhite
-                            )
-                        }
-                    }
                 }
             }
         }

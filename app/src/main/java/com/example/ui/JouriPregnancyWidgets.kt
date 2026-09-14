@@ -15,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -461,13 +462,14 @@ fun PregnancyBabyDevCard(
     Card(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
-            .clickable { onClick() },
-        colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
+            .clickable { onClick() }
+            .testTag("pregnancy_baby_dev_card"),
+        colors = CardDefaults.cardColors(containerColor = SoftTheme.CardBg),
         shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, SoftTheme.SoftPink.copy(alpha = 0.25f))
+        border = BorderStroke(1.dp, SoftTheme.CardBorder)
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(
@@ -477,59 +479,98 @@ fun PregnancyBabyDevCard(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("👶", fontSize = 16.sp)
-                    Text(
-                        text = "تطور الجنين",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = SoftTheme.TextWhite
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(SoftTheme.MintAccent),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("👶", fontSize = 18.sp)
+                    }
+                    Column {
+                        Text(
+                            text = "تطور الجنين ونبضه 🌸",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = SoftTheme.TextPrimary
+                        )
+                        Text(
+                            text = "مقارنة الحجم والأعضاء الحيوية",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SoftTheme.TextSecondaryMuted,
+                            fontSize = 11.sp
+                        )
+                    }
                 }
                 Icon(
                     imageVector = Icons.Default.ChevronLeft,
                     contentDescription = "التفاصيل",
-                    tint = SoftTheme.SoftPink,
-                    modifier = Modifier.size(18.dp)
+                    tint = SoftTheme.EmeraldPrimary,
+                    modifier = Modifier.size(20.dp)
                 )
             }
 
-            // Fetal Heart Rate stat
+            // Stats & Size comparison row
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("❤️", fontSize = 14.sp)
-                Text(
-                    text = "120-160 نبضة/د",
-                    color = SoftTheme.SoftPink,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            // Size comparison badge
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(SoftTheme.DeepSlate)
-                    .padding(horizontal = 8.dp, vertical = 6.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                // Heart Rate stat badge
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    color = SoftTheme.CanvasBg,
+                    border = BorderStroke(1.dp, SoftTheme.CardBorder)
                 ) {
-                    Text(progression.comparisonIcon, fontSize = 16.sp)
-                    Text(
-                        text = progression.comparisonName,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = SoftTheme.TextWhite,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text("❤️", fontSize = 14.sp)
+                        Column {
+                            Text("نبض الجنين", fontSize = 9.sp, color = SoftTheme.TextSecondaryMuted)
+                            Text(
+                                text = "120-160 ن/د",
+                                color = SoftTheme.WarmCoral,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+
+                // Size comparison badge
+                Surface(
+                    modifier = Modifier.weight(1.3f),
+                    shape = RoundedCornerShape(12.dp),
+                    color = SoftTheme.CanvasBg,
+                    border = BorderStroke(1.dp, SoftTheme.CardBorder)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(progression.comparisonIcon, fontSize = 16.sp)
+                        Column {
+                            Text("تشبيه الحجم", fontSize = 9.sp, color = SoftTheme.TextSecondaryMuted)
+                            Text(
+                                text = progression.comparisonName,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = SoftTheme.EmeraldPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
                 }
             }
         }

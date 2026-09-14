@@ -27,7 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.ui.theme.SoftTheme
+import com.example.ui.SoftTheme
 import com.example.util.GitHubReleaseInfo
 import com.example.util.UpdateStatus
 import com.example.viewmodel.WomanCompanionViewModel

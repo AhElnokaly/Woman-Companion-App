@@ -18,7 +18,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.SoftTheme
+import com.example.ui.SoftTheme
 import com.example.util.BackupManager
 import com.example.viewmodel.WomanCompanionViewModel
 import java.io.File

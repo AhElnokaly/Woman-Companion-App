@@ -1,11 +1,10 @@
-# fix-state: Big 5 Major Features Run
+# fix-state: Modern Health & Wellness Super-App Dashboard Transformation
 
+## Run Manifest
 | # | المهمة | الحالة (Status) | QA Gate | ملاحظات |
 |---|--------|-----------------|---------|---------|
-| 1 | تصدير تقرير الطبيب الشامل للزيارة (Doctor Visit Report) | done | PASS | DoctorVisitReportDialog مدمج في شاشة المواعيد مع خيارات النسخ والمشاركة |
-| 2 | التفاعل الصوتي الذكي مع نصائح جوري (TTS Voice Engine) | done | PASS | محرك JouriSpeechHelper ومحرك النطق الصوتي العربي مدمج ببطاقة جوري الترحيبية |
-| 3 | تدريبات التنفس السريع لنوبات القلق وتسكين التقلصات (SOS Breathing) | done | PASS | زر مخصص وسريع "تنفسي مع جوري 🌸" ببطاقة الإجراءات السريعة في الواجهة الرئيسية |
-| 4 | التنبيهات الذكية لتداخلات الأدوية (الحديد والكالسيوم والشاي) | done | PASS | مكوّن DrugNutrientConflictBanner الذكي ينبه الحامل عند تناول الحديد والكالسيوم معاً |
-| 5 | ويدجت الشاشة الرئيسية للهاتف (Android App Widget) | done | PASS | ويدجت WomanCompanionAppWidget كامل مع زر تسجيل الماء السريع وحساب أسبوع الحمل |
-| 6 | بطاقة الأدوية الديناميكية والقابلة للطي (Dynamic Expandable Meds & Cards) | done | PASS | ربط بطاقة الأدوية في الواجهة مباشرة بقاعدة البيانات وسجلات الالتزام، مع إمكانية طي/توسيع البطاقات |
+| 1 | نظام الألوان والهوية البصرية الجديدة (Theme Tokens & SoftTheme) | done | PASS | دمج لوحة الألوان العصرية (Emerald, Mint, Water Blue, Food Orange, Sleep Purple, Women Pink, Jouri Turquoise, Charcoal Text) |
+| 2 | ترويسة التطبيق وبطاقة مؤشر العافية وبطاقة الدواء القادم (Header + Health Score + Medication Card) | done | PASS | بناء المكونات العلوية وتنسيقها طبقاً للصورة بدقة فائقة |
+| 3 | شبكة البينتو المتوازنة 2x2 Bento Grid وبطاقة صحة المرأة ورؤى جوري AI | done | PASS | بطاقات الماء، الغذاء والماكروز، النوم وعمقه، الأعراض والشدة، بانر الدورة، ورؤى جوري الذكية |
+| 4 | شريط التنقل السفلي العائم المنحني والزر المركزي الدائري (+) | done | PASS | Curved Floating Bottom Bar مع الزر العائم المركزي وتكامل الشاشة الرئيسية والنافذة المنبثقة للتسجيل السريع |
 

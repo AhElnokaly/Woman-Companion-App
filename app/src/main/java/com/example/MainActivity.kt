@@ -62,16 +62,6 @@ import java.io.StringWriter
 class MainActivity : ComponentActivity() {
 
     private val isExactAlarmDeniedState = mutableStateOf(false)
-    private val targetTabState = mutableStateOf<Int?>(null)
-
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        val tab = intent.getIntExtra("target_tab", -1)
-        if (tab in 0..4) {
-            targetTabState.value = tab
-        }
-    }
 
     override fun onResume() {
         super.onResume()
@@ -174,15 +164,9 @@ class MainActivity : ComponentActivity() {
             requestPermissionLauncher.launch(permissionsToRequest.toTypedArray())
         }
 
-        // Check initial intent for target_tab
-        val initialTab = intent?.getIntExtra("target_tab", -1) ?: -1
-        if (initialTab in 0..4) {
-            targetTabState.value = initialTab
-        }
-
         setContent {
             val settings by viewModel.appLockSettingsState.collectAsStateWithLifecycle()
-            val isDarkTheme = settings?.isDarkMode ?: true
+            val isDarkTheme = settings?.isDarkMode ?: false
 
             LaunchedEffect(settings) {
                 SoftTheme.isDark = isDarkTheme
@@ -221,16 +205,7 @@ class MainActivity : ComponentActivity() {
                 var showJouriChat by remember { mutableStateOf(false) }
                 var showNotificationsDialog by remember { mutableStateOf(false) }
                 var hasUnreadNotifications by remember { mutableStateOf(true) }
-
-                val targetTab by targetTabState
-                LaunchedEffect(targetTab) {
-                    targetTab?.let { tabIndex ->
-                        if (tabIndex in 0 until tabsList.size) {
-                            pagerState.scrollToPage(tabIndex)
-                            targetTabState.value = null
-                        }
-                    }
-                }
+                var showQuickActionDialog by remember { mutableStateOf(false) }
 
                 if (isLocked) {
                     AppLockScreen(viewModel = viewModel, onSuccess = {})
@@ -366,7 +341,8 @@ class MainActivity : ComponentActivity() {
                                             Triple("الرئيسية والمؤشرات", Icons.Default.Home, 0),
                                             Triple(if (pregState?.isPregnant == true) "رحلة الحمل المبارك" else "الدورة والخصوبة", if (pregState?.isPregnant == true) Icons.Default.Favorite else Icons.Default.DateRange, 1),
                                             Triple("الغذاء والمياه الصحية", Icons.Default.LocalCafe, 2),
-                                            Triple("الأعراض والروتين الطبي", Icons.Default.Thermostat, 3)
+                                            Triple("الأعراض والروتين الطبي", Icons.Default.Thermostat, 3),
+                                            Triple("الأدوات الذكية المساعدة", Icons.Default.Dashboard, 4)
                                         )
 
                                         coreTabs.forEach { (title, icon, index) ->
@@ -407,6 +383,7 @@ class MainActivity : ComponentActivity() {
 
                                         val cycleTools = listOf(
                                             Triple("🎯 حاسبة التخطيط والحمل الذكي", "smart_conception", Icons.Default.DateRange),
+                                            Triple("🛡️ تتبع وسيلة منع الحمل", "contraceptive", Icons.Default.CheckCircle),
                                             Triple("🌙 قضاء أيام الصيام", "qada", Icons.Default.Star)
                                         )
 
@@ -576,7 +553,7 @@ class MainActivity : ComponentActivity() {
                                     .background(SoftTheme.BackgroundBrush),
                                 containerColor = MaterialTheme.colorScheme.background,
                                 topBar = {
-                                    if (!isViewingSettings) {
+                                    if (!isViewingSettings && pagerState.currentPage != 0) {
                                         Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -658,131 +635,34 @@ class MainActivity : ComponentActivity() {
                                 },
                                 floatingActionButton = {
                                     if (!isViewingSettings) {
-                                        FloatingActionButton(
+                                        ExtendedFloatingActionButton(
                                             onClick = { showJouriChat = true },
                                             containerColor = SoftTheme.SoftPink,
-                                            contentColor = SoftTheme.TextWhite,
-                                            shape = RoundedCornerShape(24.dp),
-                                            modifier = Modifier.testTag("jouri_fab")
+                                            contentColor = androidx.compose.ui.graphics.Color.White,
+                                            shape = RoundedCornerShape(22.dp),
+                                            modifier = Modifier.testTag("floating_jouri_chat_fab")
                                         ) {
-                                            Row(
-                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                            ) {
-                                                Text("🌸", fontSize = 20.sp)
-                                                Text("$companionName صديقتكِ الذكية", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite)
-                                            }
+                                            Text("🌸", fontSize = 16.sp)
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "$companionName صديقتكِ الذكية",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 12.sp
+                                            )
                                         }
                                     }
                                 },
                                 bottomBar = {
                                     if (!isViewingSettings) {
-                                        NavigationBar(
-                                            modifier = Modifier.testTag("main_navigation_bar"),
-                                            containerColor = SoftTheme.CardSlate,
-                                            tonalElevation = 8.dp
-                                        ) {
-                                            NavigationBarItem(
-                                                selected = pagerState.currentPage == 0,
-                                                onClick = {
-                                                    coroutineScope.launch {
-                                                        pagerState.animateScrollToPage(0)
-                                                    }
-                                                },
-                                                icon = { Icon(Icons.Default.Home, contentDescription = "الرئيسية") },
-                                                label = { Text("الرئيسية") },
-                                                colors = NavigationBarItemDefaults.colors(
-                                                    selectedIconColor = SoftTheme.DeepSlate,
-                                                    selectedTextColor = SoftTheme.SoftPink,
-                                                    indicatorColor = SoftTheme.SoftPink,
-                                                    unselectedIconColor = SoftTheme.SoftGray,
-                                                    unselectedTextColor = SoftTheme.SoftGray
-                                                ),
-                                                modifier = Modifier.testTag("tab_dashboard")
-                                            )
-
-                                            NavigationBarItem(
-                                                selected = pagerState.currentPage == 1,
-                                                onClick = {
-                                                    coroutineScope.launch {
-                                                        pagerState.animateScrollToPage(1)
-                                                    }
-                                                },
-                                                icon = { 
-                                                    Icon(
-                                                        imageVector = if (pregState?.isPregnant == true) Icons.Default.Favorite else Icons.Default.DateRange, 
-                                                        contentDescription = if (pregState?.isPregnant == true) "الحمل" else "الدورة والخصوبة"
-                                                    ) 
-                                                },
-                                                label = { Text(if (pregState?.isPregnant == true) "الحمل" else "الدورة") },
-                                                colors = NavigationBarItemDefaults.colors(
-                                                    selectedIconColor = SoftTheme.DeepSlate,
-                                                    selectedTextColor = SoftTheme.SoftPink,
-                                                    indicatorColor = SoftTheme.SoftPink,
-                                                    unselectedIconColor = SoftTheme.SoftGray,
-                                                    unselectedTextColor = SoftTheme.SoftGray
-                                                ),
-                                                modifier = Modifier.testTag("tab_period")
-                                            )
-
-                                            NavigationBarItem(
-                                                selected = pagerState.currentPage == 2,
-                                                onClick = {
-                                                    coroutineScope.launch {
-                                                        pagerState.animateScrollToPage(2)
-                                                    }
-                                                },
-                                                icon = { Icon(Icons.Default.LocalCafe, contentDescription = "الغذاء والماء") },
-                                                label = { Text("الغذاء") },
-                                                colors = NavigationBarItemDefaults.colors(
-                                                    selectedIconColor = SoftTheme.DeepSlate,
-                                                    selectedTextColor = SoftTheme.SoftPink,
-                                                    indicatorColor = SoftTheme.SoftPink,
-                                                    unselectedIconColor = SoftTheme.SoftGray,
-                                                    unselectedTextColor = SoftTheme.SoftGray
-                                                ),
-                                                modifier = Modifier.testTag("tab_nutrition")
-                                            )
-
-                                            NavigationBarItem(
-                                                selected = pagerState.currentPage == 3,
-                                                onClick = {
-                                                    coroutineScope.launch {
-                                                        pagerState.animateScrollToPage(3)
-                                                    }
-                                                },
-                                                icon = { Icon(Icons.Default.Thermostat, contentDescription = "الأعراض والأدوية") },
-                                                label = { Text("الأعراض") },
-                                                colors = NavigationBarItemDefaults.colors(
-                                                    selectedIconColor = SoftTheme.DeepSlate,
-                                                    selectedTextColor = SoftTheme.SoftPink,
-                                                    indicatorColor = SoftTheme.SoftPink,
-                                                    unselectedIconColor = SoftTheme.SoftGray,
-                                                    unselectedTextColor = SoftTheme.SoftGray
-                                                ),
-                                                modifier = Modifier.testTag("tab_symptoms")
-                                            )
-
-                                            NavigationBarItem(
-                                                selected = pagerState.currentPage == 4,
-                                                onClick = {
-                                                    coroutineScope.launch {
-                                                        pagerState.animateScrollToPage(4)
-                                                    }
-                                                },
-                                                icon = { Icon(Icons.Default.Build, contentDescription = "الأدوات والمساعدة") },
-                                                label = { Text("الأدوات") },
-                                                colors = NavigationBarItemDefaults.colors(
-                                                    selectedIconColor = SoftTheme.DeepSlate,
-                                                    selectedTextColor = SoftTheme.SoftPink,
-                                                    indicatorColor = SoftTheme.SoftPink,
-                                                    unselectedIconColor = SoftTheme.SoftGray,
-                                                    unselectedTextColor = SoftTheme.SoftGray
-                                                ),
-                                                modifier = Modifier.testTag("tab_tools")
-                                            )
-                                        }
+                                        com.example.ui.dashboard.CurvedFloatingBottomBar(
+                                            currentPage = pagerState.currentPage,
+                                            isPregnant = pregState?.isPregnant == true,
+                                            onTabSelected = { targetPage ->
+                                                coroutineScope.launch {
+                                                    pagerState.animateScrollToPage(targetPage)
+                                                }
+                                            }
+                                        )
                                     }
                                 }
                             ) { innerPadding ->
@@ -937,6 +817,18 @@ class MainActivity : ComponentActivity() {
                                             viewModel = viewModel,
                                             onDismiss = { showNotificationsDialog = false },
                                             onNavigateToTab = { page ->
+                                                coroutineScope.launch {
+                                                    pagerState.animateScrollToPage(page)
+                                                }
+                                            }
+                                        )
+                                    }
+
+                                    if (showQuickActionDialog) {
+                                        com.example.ui.dashboard.QuickActionModal(
+                                            viewModel = viewModel,
+                                            onDismiss = { showQuickActionDialog = false },
+                                            onNavigateToPage = { page ->
                                                 coroutineScope.launch {
                                                     pagerState.animateScrollToPage(page)
                                                 }

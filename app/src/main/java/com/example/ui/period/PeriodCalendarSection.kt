@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.PeriodLog
 import com.example.data.PregnancyEntity
-import com.example.ui.theme.SoftTheme
+import com.example.ui.SoftTheme
 import java.util.*
 
 @Composable

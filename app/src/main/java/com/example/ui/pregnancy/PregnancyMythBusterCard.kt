@@ -15,7 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.OfflineJouriEngine
-import com.example.ui.theme.SoftTheme
+import com.example.ui.SoftTheme
 import com.example.viewmodel.WomanCompanionViewModel
 import kotlinx.coroutines.launch
 

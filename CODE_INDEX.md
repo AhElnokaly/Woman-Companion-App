@@ -32,14 +32,21 @@
 
 ### Presentation & UI Layer (`/app/src/main/java/com/example/ui/`)
 - **`WomanCompanionViewModel.kt`**: Central ViewModel managing UI StateFlows, calculations (EDD, cycle, ovulation, sleep score, pregnancy stats, vitals, streaks), and Coroutine exception safety.
-- **`SoftTheme.kt` & `theme/`**: Centralized Material Design 3 design system, color palette (`SoftPink`, `CardSlate`, `DeepSlate`, `MintTeal`, `SoftTeal`, `NifasRose`, `PregnancyPurple`), and typography.
+- **`SoftTheme.kt` & `theme/`**: Centralized Material Design 3 design system, color palette (`SoftPink`, `CardSlate`, `DeepSlate`, `MintTeal`, `SoftTeal`, `NifasRose`, `PregnancyPurple`, `EmeraldPrimary`, `WaterBlue`, `FoodOrange`, `SleepPurple`, `WomenPink`, `JouriTurquoise`), and typography.
+- **`ui/dashboard/`**: Modern Health & Wellness Super-App Dashboard Suite:
+  - `ModernHealthHeader.kt`: Status bar welcoming header with avatar, user greeting, dark/light theme mode toggle button, and notification bell badge.
+  - `HealthScoreHeroCard.kt`: 87% circular progress hero card with motivating subtitle and wellness score.
+  - `UpcomingMedicationCard.kt`: Active medication dose card (e.g., Amlodipine 5mg / active med) with time badge, countdown tag, and direct "تسجيل التناول" action.
+  - `ModernBentoGrid.kt`: Balanced 2x2 grid (Water Intake with progress bar, Nutrition & Macros with meal count, Sleep Duration & Quality with visual bar, Symptoms Tracker with severity indicator) plus full-width Women's Health tracker banner and Jouri AI Smart Insights card.
+  - `CurvedFloatingBottomBar.kt`: Elevated curved bottom navigation bar with prominent center circular (+) action button.
+  - `QuickActionModal.kt`: Instant modal dialog triggered by the center (+) button (quick water log, meal logging, medication check, symptoms tracker, and Jouri AI chat).
 - **`GlassmorphicComponents.kt`**: Reusable frosted-glass cards, animated spring buttons, badges, and gradient backgrounds.
 - **`AnalyticsCharts.kt`**: Smooth canvas sparklines, progress rings, and trend charts.
 - **`PregnancyDashboardScreen.kt`**: Primary Pregnancy Dashboard:
   - 270° Horseshoe Arc radial pregnancy progress gauge with pulsing thumb indicator.
-  - Interactive Bento Grid (baby organ development, live activity sparkline, next medical appointment).
-  - Daily Vitals Summary Card (water intake, step progress, upcoming appointment shortcuts).
-  - Dynamic & Expandable Daily Vitamins Card (`DailyVitaminsCard`): Connected live to Room `activeMedicationsState` and `allMedicationAdherenceLogsState`, with expand/collapse chevron animation, compact progress bar, conflict detection, and direct adherence logging.
+  - Baby Info & Doctor Care Hub (`PregnancyBabyInfoDisplayCard`): Shows baby identity, proposed name, latest ultrasound weight & length with reference comparison tag, and upcoming doctor appointment with quick-schedule trigger.
+  - Unified Baby & Doctor Care Dialog (`BabyAndDoctorCareDialog.kt`): 3-tab dialog for baby name/gender, ultrasound measurements with reference standard autofill, and doctor appointment scheduling with native date/time pickers.
+  - Dynamic & Expandable Daily Vitamins Card (`DailyVitaminsCard`): Connected live to Room `activeMedicationsState` and `allMedicationAdherenceLogsState`.
   - Expandable Quick Actions Card (`PregnancyQuickActionsCard`): Water log, BP dialog, Journal, SOS Breathing, and fetal kick counter with collapsible header.
   - **`JouriExploreCardsCarousel.kt` (`pregnancy/PregnancyDashboardExploreCards.kt`)**: Horizontal swipeable carousel condensing secondary explore widgets (Jouri Tips & Weather, Myth Buster, Egyptian Food Search, Quick Craving Log) with animated dots indicator.
   - Milestone Celebrations & Past Pregnancy Memory Cards.

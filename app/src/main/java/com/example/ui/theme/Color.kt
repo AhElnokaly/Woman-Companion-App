@@ -22,15 +22,15 @@ object Primitives {
     val SeafoamMintDark = Color(0xFF80E0D2) // Soft secondary highlight
     
     // --- Light Mode / Rose Blossom Palette ---
-    val BlossomCream = Color(0xFFFDF8F9)   // Ultra soft, warm rose-tinted off-white
+    val BlossomCream = Color(0xFFF6FAF8)   // Fresh soft ivory mint tinted off-white
     val PureWhite = Color(0xFFFFFFFF)      // Pure card surfaces
-    val SoftAlabaster = Color(0xFFF1F3F6)  // Sub-cards and inputs
-    val SlateBlueLight = Color(0xFF1A237E) // Rich, high-contrast text color
-    val SoftRoseLight = Color(0xFFFFD0DC)  // Delicate background highlights
-    val PassionRoseLight = Color(0xFFE84E75) // Radiant maternal pink
-    val MagentaPinkLight = Color(0xFFD81B60) // Deep rich primary accent
+    val SoftAlabaster = Color(0xFFE8F7F2)  // Sub-cards, chips, and inputs
+    val SlateBlueLight = Color(0xFF1A2E26) // Rich, high-contrast dark charcoal text
+    val SoftRoseLight = Color(0xFFC8F0E4)  // Delicate mint highlights
+    val PassionRoseLight = Color(0xFF00A884) // Fresh Emerald/Teal primary accent
+    val MagentaPinkLight = Color(0xFF00897B) // Deep rich teal accent
     val ForestTealLight = Color(0xFF00897B) // Natural healing teal
-    val EmeraldTealLight = Color(0xFF00BFA5) // Bright active state green
+    val EmeraldTealLight = Color(0xFF00A884) // Bright active state green
     
     // --- Shared / Status Palette ---
     val AmberWarningDark = Color(0xFFFFC107)
@@ -134,19 +134,86 @@ object AppLayers {
 }
 
 object SoftTheme {
-    val DeepSlate = Color(0xFF11151E)
-    val CardSlate = Color(0xFF1A1F2B)
-    val CardDark = Color(0xFF1A1F2B)
-    val ElevatedSlate = Color(0xFF242C3C)
-    val SoftPink = Color(0xFFFA809F)
-    val PrimaryPink = Color(0xFFFA809F)
-    val DeepPink = Color(0xFFF0527F)
-    val LightPink = Color(0xFFFFB3C6)
-    val NifasRose = Color(0xFFFF8DA1)
-    val MintTeal = Color(0xFF00C0A5)
-    val TextWhite = Color(0xFFFFFFFF)
-    val SoftGray = Color(0xFF8E9AA7)
-    val RedDanger = Color(0xFFEF5350)
-    val PregnancyPurple = Color(0xFFBB86FC)
-    val CardBorder = Color(0x33FA809F)
+    val DeepSlate: Color get() = com.example.ui.SoftTheme.DeepSlate
+    val CardSlate: Color get() = com.example.ui.SoftTheme.CardSlate
+    val CardDark: Color get() = com.example.ui.SoftTheme.CardDark
+    val ElevatedSlate: Color get() = com.example.ui.SoftTheme.ElevatedSlate
+    val SoftPink: Color get() = com.example.ui.SoftTheme.SoftPink
+    val PrimaryPink: Color get() = com.example.ui.SoftTheme.PrimaryPink
+    val DeepPink: Color get() = com.example.ui.SoftTheme.DeepPink
+    val LightPink: Color get() = com.example.ui.SoftTheme.LightPink
+    val NifasRose: Color get() = com.example.ui.SoftTheme.NifasRose
+    val MintTeal: Color get() = com.example.ui.SoftTheme.MintTeal
+    val TextWhite: Color get() = com.example.ui.SoftTheme.TextWhite
+    val SoftGray: Color get() = com.example.ui.SoftTheme.SoftGray
+    val RedDanger: Color get() = com.example.ui.SoftTheme.RedDanger
+    val PregnancyPurple: Color get() = com.example.ui.SoftTheme.PregnancyPurple
+    val SoftPurple: Color get() = com.example.ui.SoftTheme.SoftPurple
+    val WarmCoral: Color get() = com.example.ui.SoftTheme.WarmCoral
+    val SoftTeal: Color get() = com.example.ui.SoftTheme.SoftTeal
+    val CardBorder: Color get() = com.example.ui.SoftTheme.CardBorder
+    val CanvasBg: Color get() = com.example.ui.SoftTheme.CanvasBg
+    val CardBg: Color get() = com.example.ui.SoftTheme.CardBg
+    val EmeraldPrimary: Color get() = com.example.ui.SoftTheme.EmeraldPrimary
+    val TealDark: Color get() = com.example.ui.SoftTheme.TealDark
+    val MintAccent: Color get() = com.example.ui.SoftTheme.MintAccent
+    val MintAccentBorder: Color get() = com.example.ui.SoftTheme.MintAccentBorder
+    val isDark: Boolean get() = com.example.ui.SoftTheme.isDark
 }
+
+object ModernHealthTokens {
+    // Canvas & Surfaces
+    val CanvasBackground = Color(0xFFF6FAF8)   // Soft ivory mint tinted off-white
+    val CardWhite = Color(0xFFFFFFFF)          // Pure crisp white cards
+    val CardBorderLight = Color(0xFFD4E6DF)    // Refined crisp mint border for distinctive cards
+    val CardShadow = Color(0x12000000)
+
+    // Primary Emerald / Teal
+    val PrimaryEmerald = Color(0xFF00A884)     // Main action green/emerald
+    val PrimaryTeal = Color(0xFF00897B)        // Deep healthy teal
+    val EmeraldGradientEnd = Color(0xFF00897B)
+
+    // Accent Mint
+    val AccentMint = Color(0xFFE8F7F2)         // Pale mint background for badges / chips
+    val AccentMintBorder = Color(0xFFC8F0E4)   // Mint border / progress track
+    val AccentMintDark = Color(0xFF80CBC4)
+
+    // Supporting category colors
+    // Water
+    val WaterBlue = Color(0xFF29B6F6)
+    val WaterBlueDark = Color(0xFF0288D1)
+    val WaterBg = Color(0xFFE1F5FE)
+
+    // Food & Nutrition
+    val FoodOrange = Color(0xFFFFA726)
+    val FoodOrangeDark = Color(0xFFF57C00)
+    val FoodBg = Color(0xFFFFF3E0)
+    val ProteinColor = Color(0xFF4CAF50)
+    val CarbColor = Color(0xFFFFA726)
+    val FatColor = Color(0xFFAB47BC)
+
+    // Sleep & Rest
+    val SleepPurple = Color(0xFF5C6BC0)
+    val SleepPurpleDark = Color(0xFF3949AB)
+    val SleepBg = Color(0xFFEDE7F6)
+
+    // Symptoms
+    val SymptomsPurple = Color(0xFF8E24AA)
+    val SymptomsBg = Color(0xFFF3E5F5)
+
+    // Women's Health & Cycle
+    val WomenPink = Color(0xFFF06292)
+    val WomenPinkDark = Color(0xFFD81B60)
+    val WomenPinkBg = Color(0xFFFCE4EC)
+
+    // Jouri AI
+    val JouriTurquoise = Color(0xFF26A69A)
+    val JouriTurquoiseDark = Color(0xFF00897B)
+    val JouriBg = Color(0xFFE0F2F1)
+
+    // Typography & Contrast
+    val TextPrimaryDark = Color(0xFF1A2E26)     // Deep rich charcoal/slate
+    val TextSecondary = Color(0xFF607D8B)       // Muted slate gray
+    val TextMuted = Color(0xFF90A4AE)           // Light subtle gray
+}
+

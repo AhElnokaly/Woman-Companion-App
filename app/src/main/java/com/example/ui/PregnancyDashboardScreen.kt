@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -141,13 +142,21 @@ fun PregnancyDashboardScreen(
     val todayWaterLog by viewModel.todayWaterLogState.collectAsStateWithLifecycle()
     val todayStepLog by viewModel.todayStepLogState.collectAsStateWithLifecycle()
     val appointments by viewModel.appointmentsState.collectAsStateWithLifecycle()
+    val allFetalGrowthLogs by viewModel.allFetalGrowthLogsState.collectAsStateWithLifecycle()
+    val allMaternalWeightLogs by viewModel.allMaternalWeightLogsState.collectAsStateWithLifecycle()
     val settings by viewModel.appLockSettingsState.collectAsStateWithLifecycle()
     val medications by viewModel.allMedicationsState.collectAsStateWithLifecycle()
+    val activeMedications by viewModel.activeMedicationsState.collectAsStateWithLifecycle()
+    val allWaterLogs by viewModel.allWaterLogsState.collectAsStateWithLifecycle()
+    val allNutritionLogs by viewModel.allNutritionLogsState.collectAsStateWithLifecycle()
+    val allSleepLogs by viewModel.allSleepLogsState.collectAsStateWithLifecycle()
+    val adherenceLogs by viewModel.allMedicationAdherenceLogsState.collectAsStateWithLifecycle()
     
     val activeStart by viewModel.currentKickSessionStart.collectAsStateWithLifecycle()
     val currentCount by viewModel.currentKickCount.collectAsStateWithLifecycle()
 
     var showSetupDialog by remember { mutableStateOf(false) }
+    var showScoreBreakdownDialog by remember { mutableStateOf(false) }
     var showAddBpDialog by remember { mutableStateOf(false) }
     var showAddJournalDialog by remember { mutableStateOf(false) }
 
@@ -160,6 +169,27 @@ fun PregnancyDashboardScreen(
     var showCustomizationDialog by remember { mutableStateOf(false) }
     var showFetalVisualizerDialog by remember { mutableStateOf(false) }
 
+    var selectedFilterTab by rememberSaveable { mutableIntStateOf(0) } // 0: الكل, 1: صحتي ويومي, 2: طفلي وحملي
+
+    val currentHour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
+    val contextualSubtitle = remember(currentHour, pregState?.isPregnant) {
+        if (pregState?.isPregnant == true) {
+            when (currentHour) {
+                in 5..11 -> "رطبي جسمكِ برشفة ماء وتناولي جرعة الصباح 💧"
+                in 12..16 -> "احرصي على شرب الماء وأخذ قسط من الراحة 🌿"
+                in 17..21 -> "تفقدي خطواتكِ لليوم وسجلي ركلات طفلكِ ونسب التغذية ✨"
+                else -> "استرخي مع تمارين التنفس الهادئة لتهيئة نوم صحي وعميق 🌙"
+            }
+        } else {
+            when (currentHour) {
+                in 5..11 -> "ابدئي صباحكِ بنشاط وترطيب متوازن 💧"
+                in 12..16 -> "حافظي على طاقتكِ وخذي استراحة خفيفة 🌿"
+                in 17..21 -> "راجعي إنجاز أهدافكِ اليومية والنشاط البدني ✨"
+                else -> "أمسية هادئة لنوم عميق وتجديد الحيوية 🌙"
+            }
+        }
+    }
+
     val context = LocalContext.current
     var layoutRefreshKey by remember { mutableStateOf(0) }
     val dashPrefs = remember(layoutRefreshKey) { context.getSharedPreferences("dashboard_layout_prefs", Context.MODE_PRIVATE) }
@@ -169,42 +199,205 @@ fun PregnancyDashboardScreen(
     val showSecVitals = remember(dashPrefs, layoutRefreshKey) { dashPrefs.getBoolean("sec_vitals", true) }
     val showSecExplore = remember(dashPrefs, layoutRefreshKey) { dashPrefs.getBoolean("sec_explore", true) }
 
+    // --- Dynamic Daily Goal Progress Calculations (مرتبط مباشرة ببيانات اليوم الحقيقية) ---
+    val todayStartMillis = remember {
+        Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+    }
+
+    val todayWaterMl = remember(allWaterLogs, todayStartMillis) {
+        allWaterLogs.filter { it.date >= todayStartMillis }.sumOf { it.amountMl }
+    }
+    val waterTarget = viewModel.getWaterTarget()
+    val waterFraction = if (waterTarget > 0) (todayWaterMl.toFloat() / waterTarget.toFloat()).coerceIn(0f, 1f) else 0f
+
+    val todayCalories = remember(allNutritionLogs, todayStartMillis) {
+        allNutritionLogs.filter { it.date >= todayStartMillis }.sumOf { it.calories }
+    }
+    val calorieTarget = viewModel.getCalorieTarget().target
+    val caloriesFraction = if (calorieTarget > 0) (todayCalories.toFloat() / calorieTarget.toFloat()).coerceIn(0f, 1f) else 0f
+
+    val latestSleep = remember(allSleepLogs, todayStartMillis) {
+        allSleepLogs.filter { it.date >= todayStartMillis - 14 * 3600 * 1000L }.maxByOrNull { it.date }
+    }
+    val sleepDurationHours = remember(latestSleep) {
+        if (latestSleep != null && latestSleep.endTime > latestSleep.startTime) {
+            (latestSleep.endTime - latestSleep.startTime) / (1000f * 3600f)
+        } else 0f
+    }
+    val sleepFraction = if (sleepDurationHours > 0f) {
+        (sleepDurationHours / 7.5f).coerceIn(0f, 1f)
+    } else 0f
+
+    val stepGoal = settings?.dailyStepTarget ?: 6000
+    val currentSteps = todayStepLog?.steps ?: 0
+    val stepsFraction = if (stepGoal > 0) (currentSteps.toFloat() / stepGoal.toFloat()).coerceIn(0f, 1f) else 0f
+
+    val todayTakenMedCount = remember(adherenceLogs, activeMedications, todayStartMillis) {
+        val takenIds = adherenceLogs
+            .filter { it.scheduledTime >= todayStartMillis && it.status == "TAKEN" }
+            .map { it.medicationId }
+            .toSet()
+        activeMedications.count { it.id in takenIds }
+    }
+    val medsFraction = if (activeMedications.isNotEmpty()) {
+        (todayTakenMedCount.toFloat() / activeMedications.size.toFloat()).coerceIn(0f, 1f)
+    } else null
+
+    val dailyProgressScore = remember(waterFraction, caloriesFraction, sleepFraction, stepsFraction, medsFraction) {
+        val score = if (medsFraction != null) {
+            (waterFraction * 0.25f + caloriesFraction * 0.25f + sleepFraction * 0.20f + stepsFraction * 0.15f + medsFraction * 0.15f) * 100f
+        } else {
+            (waterFraction * 0.30f + caloriesFraction * 0.30f + sleepFraction * 0.20f + stepsFraction * 0.20f) * 100f
+        }
+        kotlin.math.round(score).toInt().coerceIn(0, 100)
+    }
+
+    val dynamicHeroTitle = remember(dailyProgressScore, pregState?.isPregnant) {
+        if (dailyProgressScore == 0) {
+            if (pregState?.isPregnant == true) "ابدئي يومكِ الصحي بالرعاية 🌸" else "ابدئي يومكِ الصحي بكل حيوية 🌸"
+        } else if (dailyProgressScore < 50) {
+            if (pregState?.isPregnant == true) "بداية موفقة لصحتكِ وصحة طفلكِ ✨" else "بداية موفقة لروتينكِ الصحي ✨"
+        } else if (dailyProgressScore < 85) {
+            if (pregState?.isPregnant == true) "حملكِ يسير بصحة وعافية وتقدم رائع 🌿" else "أنتِ على الطريق الصحيح وتوازن رائع 🌿"
+        } else {
+            if (pregState?.isPregnant == true) "يوم مثالي وصحة متألقة لكِ ولطفلكِ 🌟" else "يوم رائع وإنجاز صحي متكامل 🌟"
+        }
+    }
+
+    val dynamicHeroSubtitle = remember(dailyProgressScore, todayWaterMl, todayCalories, currentSteps) {
+        if (dailyProgressScore == 0) {
+            "سجلي شرب الماء، الوجبات، والأنشطة لتتبع إنجاز أهدافكِ خطوة بخطوة 💧"
+        } else {
+            "أنجزتِ $dailyProgressScore% من أهدافكِ اليومية .. واصلي روتينكِ الصحي 🌸"
+        }
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(bottom = 80.dp)
-        ) {
-            item {
-                val companionName = settings?.companionName ?: "جوري"
-                PregnancyHeaderCard(
-                    companionName = companionName,
-                    isNetworkAvailable = isNetworkAvailable,
-                    weatherState = weatherState,
-                    onToggleDarkMode = { viewModel.toggleDarkMode() },
-                    onNavigateToSettings = onNavigateToSettings,
-                    userName = pregState?.motherName,
-                    onEditProfile = { showEditProfileDialog = true },
-                    onOpenCustomization = { showCustomizationDialog = true }
-                )
-            }
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(bottom = 90.dp)
+    ) {
+        // 🌿 1. Modern Health Header
+        item {
+            com.example.ui.dashboard.ModernHealthHeader(
+                userName = pregState?.motherName,
+                onAvatarClick = { showEditProfileDialog = true },
+                onNotificationsClick = onNavigateToSettings,
+                onToggleTheme = { viewModel.toggleDarkMode() },
+                hasUnreadNotifications = true
+            )
+        }
 
-            // 🌸 حالة الحمل: عرض مؤشر النمو الدائري وشبكة بينتو فوراً بعد الترحيب كأولوية بصرية أولى
-            if (pregState?.isPregnant == true && pregState?.isDelivered != true && progression != null) {
-                val prog = progression!!
-                val trimesterColor = when {
-                    prog.weeks >= 41 -> Color(0xFFFFB300) // Month 10: Gold Amber
-                    prog.trimester == 1 -> Color(0xFF9575CD) // Trimester 1: Lavender
-                    prog.trimester == 2 -> SoftTheme.MintTeal // Trimester 2: Mint Teal
-                    else -> SoftTheme.SoftPink // Trimester 3: Soft Pink
+        // 🌿 2. Modern Health Score Hero Card (Dynamic score linked to real data)
+        item {
+            com.example.ui.dashboard.HealthScoreHeroCard(
+                scorePercent = dailyProgressScore,
+                titleText = dynamicHeroTitle,
+                subtitleText = dynamicHeroSubtitle,
+                onClick = { showScoreBreakdownDialog = true }
+            )
+        }
+
+        // 🎛️ Segmented Filter & Customization Action Bar
+        item {
+            val isPreg = pregState?.isPregnant == true
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(SoftTheme.CardBg)
+                    .border(1.dp, SoftTheme.CardBorder, RoundedCornerShape(16.dp))
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val filterOptions = if (isPreg) {
+                    listOf("الكل 🌟", "صحتي ويومي 🌿", "طفلي وحملي 🤰")
+                } else {
+                    listOf("الكل 🌟", "صحتي ويومي 🌿", "رحلة الحمل 🤰")
+                }
+                filterOptions.forEachIndexed { index, label ->
+                    val isSelected = selectedFilterTab == index
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(36.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                if (isSelected) SoftTheme.MintTeal else Color.Transparent
+                            )
+                            .clickable { selectedFilterTab = index },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                fontSize = 11.sp,
+                                color = if (isSelected) Color.White else SoftTheme.TextSecondaryMuted
+                            ),
+                            maxLines = 1
+                        )
+                    }
                 }
 
-                val monthProg = calculateMonthProgress(prog.weeks, prog.daysIntoWeek)
-                val activeMonth = monthProg.monthNumber
-                val activeMonthProgress = monthProg.progressFraction
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(SoftTheme.MintAccent)
+                        .border(1.dp, SoftTheme.CardBorder, RoundedCornerShape(12.dp))
+                        .clickable { showCustomizationDialog = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Tune,
+                        contentDescription = "تخصيص لوحة التحكم",
+                        tint = SoftTheme.EmeraldPrimary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
 
-                // 🌸 Jouri Signature Pregnancy Radial Gauge Card
+        // 🌿 4. Modern Bento Grid (2x2 + Cards)
+        if (selectedFilterTab == 0 || selectedFilterTab == 1) {
+            item {
+                com.example.ui.dashboard.ModernBentoGrid(
+                    viewModel = viewModel,
+                    onNavigateToWater = { onNavigateToTab(2) },
+                    onNavigateToNutrition = { onNavigateToTab(2) },
+                    onNavigateToSleep = { onNavigateToTab(3) },
+                    onNavigateToSymptoms = { onNavigateToTab(3) },
+                    onNavigateToPeriod = { onNavigateToTab(1) },
+                    onNavigateToChat = onOpenJouriChat
+                )
+            }
+        }
+
+        // 🌸 حالة الحمل: عرض مؤشر النمو الدائري وشبكة بينتو بعد شبكة الصحة الأساسية
+        if (pregState?.isPregnant == true && pregState?.isDelivered != true && progression != null) {
+            val prog = progression!!
+            val trimesterColor = when {
+                prog.weeks >= 41 -> Color(0xFFFFB300) // Month 10: Gold Amber
+                prog.trimester == 1 -> Color(0xFF9575CD) // Trimester 1: Lavender
+                prog.trimester == 2 -> SoftTheme.MintTeal // Trimester 2: Mint Teal
+                else -> SoftTheme.SoftPink // Trimester 3: Soft Pink
+            }
+
+            val monthProg = calculateMonthProgress(prog.weeks, prog.daysIntoWeek)
+            val activeMonth = monthProg.monthNumber
+            val activeMonthProgress = monthProg.progressFraction
+
+            // 🌸 Jouri Signature Pregnancy Radial Gauge Card
+            if (selectedFilterTab == 0 || selectedFilterTab == 2) {
                 item {
                     JouriPregnancyRadialGauge(
                         progression = prog,
@@ -216,96 +409,111 @@ fun PregnancyDashboardScreen(
                         }
                     )
                 }
+            }
 
-                // 🌟 Jouri Pregnancy Bento Grid (Baby Dev + Daily Activity Sparkline)
+            // 🌟 Jouri Pregnancy Baby Development Card
+            if (selectedFilterTab == 0 || selectedFilterTab == 2) {
                 item {
-                    Row(
+                    PregnancyBabyDevCard(
+                        progression = prog,
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Card 1: Baby Development (تطور الجنين)
-                        PregnancyBabyDevCard(
-                            progression = prog,
-                            modifier = Modifier.weight(1f),
-                            onClick = { showFetalVisualizerDialog = true }
-                        )
-
-                        // Card 2: Daily Activity Sparkline (النشاط والراحة)
-                        PregnancyDailyActivityCard(
-                            steps = todayStepLog?.steps ?: 0,
-                            stepGoal = settings?.dailyStepTarget ?: 6000,
-                            modifier = Modifier.weight(1f),
-                            onClick = { onNavigateToTab(1) } // Navigate to Fitness/Water tab
-                        )
-                    }
-                }
-
-                // Baby Info (Gender & Name Display/Edit Card)
-                val babyGender = pregState?.babyGender
-                val babyName = pregState?.babyName
-                val isGenderKnown = !babyGender.isNullOrEmpty()
-                
-                if (showSecBabyInfo && (prog.weeks >= 14 || isGenderKnown)) {
-                    item {
-                        PregnancyBabyInfoDisplayCard(
-                            babyGender = babyGender,
-                            babyName = babyName,
-                            onOpenEditDialog = {
-                                babyGenderInput = babyGender ?: ""
-                                babyNameInput = babyName ?: ""
-                                showBabyInfoDialog = true
-                            }
-                        )
-                    }
+                        onClick = { showFetalVisualizerDialog = true }
+                    )
                 }
             }
 
-            // Upcoming Dose Banner (نظام تنبيه الجرعة القادمة الفوري)
-            if (showSecMeds) {
+            // Baby Info & Doctor Care Hub (Gender, Name, Ultrasound Weight & Length, Doctor Appointment)
+            val babyGender = pregState?.babyGender
+            val babyName = pregState?.babyName
+            val activePregId = pregState?.id ?: 0
+            val latestFetalLog = allFetalGrowthLogs
+                .filter { it.pregnancyId == activePregId }
+                .maxByOrNull { it.pregnancyWeek }
+            val nextDoctorAppt = appointments
+                .filter { it.dateTime >= System.currentTimeMillis() && !it.completed }
+                .minByOrNull { it.dateTime }
+            
+            if ((selectedFilterTab == 0 || selectedFilterTab == 2) && showSecBabyInfo) {
                 item {
-                    UpcomingDoseBanner(viewModel = viewModel)
+                    PregnancyBabyInfoDisplayCard(
+                        babyGender = babyGender,
+                        babyName = babyName,
+                        currentWeekNumber = prog.weeks,
+                        latestFetalLog = latestFetalLog,
+                        upcomingDoctorAppointment = nextDoctorAppt,
+                        onOpenCareDialog = {
+                            babyGenderInput = babyGender ?: ""
+                            babyNameInput = babyName ?: ""
+                            showBabyInfoDialog = true
+                        }
+                    )
                 }
-            }
 
-        item {
-            val currentWeeks = progression?.weeks ?: 0
-            val pregId = pregState?.id ?: 0
-            val milestones = listOf(37, 28, 24, 20, 12)
-            val context = LocalContext.current
-            val prefs = remember { context.getSharedPreferences("milestone_prefs", android.content.Context.MODE_PRIVATE) }
-
-            var activeMilestone by remember(currentWeeks, pregId) {
-                mutableStateOf(
-                    milestones.firstOrNull { mWeek ->
-                        currentWeeks >= mWeek && !prefs.getBoolean("milestone_dismissed_${pregId}_$mWeek", false)
-                    }
-                )
-            }
-
-            activeMilestone?.let { mWeek ->
-                MilestoneCelebrationCard(
-                    weeks = mWeek,
-                    onDismiss = {
-                        prefs.edit().putBoolean("milestone_dismissed_${pregId}_$mWeek", true).apply()
-                        activeMilestone = null
-                    }
-                )
+                item {
+                    val context = LocalContext.current
+                    MaternalWeightTrackerCard(
+                        pregnancy = pregState,
+                        currentWeekNumber = prog.weeks,
+                        maternalWeightLogs = allMaternalWeightLogs,
+                        latestFetalLog = latestFetalLog,
+                        onAddMaternalWeight = { week, weight, notes ->
+                            viewModel.addMaternalWeightLog(week, weight, notes)
+                            Toast.makeText(context, "تم تسجيل وزنكِ بنجاح ⚖️✨", Toast.LENGTH_SHORT).show()
+                        },
+                        onDeleteMaternalWeight = { log ->
+                            viewModel.deleteMaternalWeightLog(log)
+                            Toast.makeText(context, "تم حذف قياس الوزن", Toast.LENGTH_SHORT).show()
+                        },
+                        onUpdatePrePregnancyWeight = { preWeight, height ->
+                            viewModel.updatePrePregnancyWeightAndHeight(preWeight, height)
+                            Toast.makeText(context, "تم حفظ بيانات ما قبل الحمل بنجاح 🌸", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
             }
         }
 
-        item {
-            val showPastMemories by viewModel.showPastPregnancyMemoriesState.collectAsStateWithLifecycle()
-            val allPregnancies by viewModel.allPregnanciesState.collectAsStateWithLifecycle()
-            val allFetalLogs by viewModel.allFetalGrowthLogsState.collectAsStateWithLifecycle()
-            var isMemoryDismissedToday by remember { mutableStateOf(false) }
+        if (selectedFilterTab == 0 || selectedFilterTab == 2) {
+            item {
+                val currentWeeks = progression?.weeks ?: 0
+                val pregId = pregState?.id ?: 0
+                val milestones = listOf(37, 28, 24, 20, 12)
+                val context = LocalContext.current
+                val prefs = remember { context.getSharedPreferences("milestone_prefs", android.content.Context.MODE_PRIVATE) }
 
-            if (showPastMemories && !isMemoryDismissedToday) {
-                PastPregnancyMemoryCard(
-                    allPregnancies = allPregnancies,
-                    allFetalGrowthLogs = allFetalLogs,
-                    onDismiss = { isMemoryDismissedToday = true },
-                    onNavigateToHistory = { onNavigateToTab(4) }
-                )
+                var activeMilestone by remember(currentWeeks, pregId) {
+                    mutableStateOf(
+                        milestones.firstOrNull { mWeek ->
+                            currentWeeks >= mWeek && !prefs.getBoolean("milestone_dismissed_${pregId}_$mWeek", false)
+                        }
+                    )
+                }
+
+                activeMilestone?.let { mWeek ->
+                    MilestoneCelebrationCard(
+                        weeks = mWeek,
+                        onDismiss = {
+                            prefs.edit().putBoolean("milestone_dismissed_${pregId}_$mWeek", true).apply()
+                            activeMilestone = null
+                        }
+                    )
+                }
+            }
+
+            item {
+                val showPastMemories by viewModel.showPastPregnancyMemoriesState.collectAsStateWithLifecycle()
+                val allPregnancies by viewModel.allPregnanciesState.collectAsStateWithLifecycle()
+                val allFetalLogs by viewModel.allFetalGrowthLogsState.collectAsStateWithLifecycle()
+                var isMemoryDismissedToday by remember { mutableStateOf(false) }
+
+                if (showPastMemories && !isMemoryDismissedToday) {
+                    PastPregnancyMemoryCard(
+                        allPregnancies = allPregnancies,
+                        allFetalGrowthLogs = allFetalLogs,
+                        onDismiss = { isMemoryDismissedToday = true },
+                        onNavigateToHistory = { onNavigateToTab(4) }
+                    )
+                }
             }
         }
 
@@ -385,11 +593,13 @@ fun PregnancyDashboardScreen(
         // Standalone JouriWeatherHeader removed to avoid duplication since JouriWellnessNotificationCard contains local weather and hydration recommendations
         
         // Dynamic, highly interactive Jouri Wellness & Notification Center
-        item {
-            ExactAlarmBannerCard()
+        if (selectedFilterTab == 0 || selectedFilterTab == 1) {
+            item {
+                ExactAlarmBannerCard()
+            }
         }
 
-        if (showSecMeds) {
+        if ((selectedFilterTab == 0 || selectedFilterTab == 1) && showSecMeds && activeMedications.isNotEmpty()) {
             item {
                 DailyVitaminsCard(
                     viewModel = viewModel,
@@ -399,33 +609,11 @@ fun PregnancyDashboardScreen(
         }
 
         // 🌟 Jouri Explore Cards Carousel (مجموعة بطاقات الاستكشاف الذكية في كاروسيل أفقي لتقليل التمرير الرأسي والعبء البصري)
-        if (showSecExplore) {
+        if ((selectedFilterTab == 0 || selectedFilterTab == 2) && showSecExplore) {
             item {
                 JouriExploreCardsCarousel(
                     viewModel = viewModel,
                     onOpenJouriChat = onOpenJouriChat,
-                    onNavigateToTab = onNavigateToTab
-                )
-            }
-        }
-
-        // 🎯 Daily Progress & Briefing Card
-        if (showSecVitals) {
-            item {
-                val waterGoal = viewModel.getWaterTarget()
-                val consumedWater = todayWaterLog?.amountMl ?: 0
-                val stepGoal = settings?.dailyStepTarget ?: 6000
-                val currentSteps = todayStepLog?.steps ?: 0
-                val upcomingAppt = appointments
-                    .filter { it.dateTime >= System.currentTimeMillis() && !it.completed }
-                    .minByOrNull { it.dateTime }
-
-                DailyVitalsSummaryCard(
-                    consumedWater = consumedWater,
-                    waterGoal = waterGoal,
-                    currentSteps = currentSteps,
-                    stepGoal = stepGoal,
-                    upcomingAppt = upcomingAppt,
                     onNavigateToTab = onNavigateToTab
                 )
             }
@@ -436,6 +624,7 @@ fun PregnancyDashboardScreen(
             item {
                 val isKickActive = activeStart != null
                 PregnancyQuickActionsCard(
+                    isPregnant = pregState?.isPregnant == true,
                     isKickActive = isKickActive,
                     currentCount = currentCount,
                     onAddWater = { viewModel.addWater(250) },
@@ -456,69 +645,73 @@ fun PregnancyDashboardScreen(
         }
 
         if (pregState == null || pregState?.isPregnant != true) {
-            // Not Pregnant View - Call to Action
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-                    shape = RoundedCornerShape(24.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+            if (selectedFilterTab == 0 || selectedFilterTab == 2) {
+                // Not Pregnant View - Call to Action
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
+                        shape = RoundedCornerShape(24.dp)
                     ) {
-                        Text(
-                            text = "تتبع الحمل الشخصي 🤰",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = SoftTheme.TextWhite,
-                            textAlign = TextAlign.Center
-                        )
-                        Text(
-                            text = "ابدئي تتبع مراحل نمو جنينكِ أسبوعياً، مع حساب تلقائي لموعد الولادة المقدر، وتوجيهات السعرات الغذائية والعناصر الحرجة المناسبة لكِ.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = SoftTheme.SoftGray,
-                            textAlign = TextAlign.Center,
-                            lineHeight = 22.sp
-                        )
-                        Button(
-                            onClick = { showSetupDialog = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("start_pregnancy_btn")
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("البدء في تتبع الحمل الآن 🌸")
+                            Text(
+                                text = "تتبع الحمل الشخصي 🤰",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = SoftTheme.TextWhite,
+                                textAlign = TextAlign.Center
+                            )
+                            Text(
+                                text = "ابدئي تتبع مراحل نمو جنينكِ أسبوعياً، مع حساب تلقائي لموعد الولادة المقدر، وتوجيهات السعرات الغذائية والعناصر الحرجة المناسبة لكِ.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = SoftTheme.SoftGray,
+                                textAlign = TextAlign.Center,
+                                lineHeight = 22.sp
+                            )
+                            Button(
+                                onClick = { showSetupDialog = true },
+                                colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("start_pregnancy_btn")
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("البدء في تتبع الحمل الآن 🌸")
+                            }
                         }
                     }
                 }
             }
 
-            // Simple Offline Tips Card
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate.copy(alpha = 0.5f)),
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+            if (selectedFilterTab == 0 || selectedFilterTab == 1) {
+                // Simple Offline Tips Card
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate.copy(alpha = 0.5f)),
+                        shape = RoundedCornerShape(20.dp)
                     ) {
-                        Text(
-                            text = "💡 معلومات الدورة الشهرية",
-                            color = SoftTheme.MintTeal,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "انتقلي إلى علامة تبويب 'الدورة والخصوبة' لتسجيل دورتكِ الشهرية والتنبؤ بتواريخ الخصوبة والإباضة المستقبلية بمجرد تسجيل ٣ دورات متتالية.",
-                            color = SoftTheme.SoftGray,
-                            style = MaterialTheme.typography.bodyMedium,
-                            lineHeight = 18.sp
-                        )
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "💡 معلومات الدورة والخصوبة",
+                                color = SoftTheme.MintTeal,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "انتقلي إلى علامة تبويب 'الدورة' لتسجيل دورتكِ الشهرية والتنبؤ بتواريخ الخصوبة والإباضة المستقبلية بمجرد تسجيل ٣ دورات متتالية.",
+                                color = SoftTheme.SoftGray,
+                                style = MaterialTheme.typography.bodyMedium,
+                                lineHeight = 18.sp
+                            )
+                        }
                     }
                 }
             }
@@ -617,6 +810,69 @@ fun PregnancyDashboardScreen(
             }
         }
 
+        // ⚙️ Dashboard Customization Banner Card
+        item {
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = SoftTheme.CardBg),
+                border = BorderStroke(1.dp, SoftTheme.CardBorder),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("dashboard_customization_card")
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Tune,
+                                contentDescription = null,
+                                tint = SoftTheme.MintTeal,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "تخصيص وترتيب البطاقات",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = SoftTheme.TextPrimary
+                                )
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "تحكمي في إظهار أو إخفاء بطاقات لوحة التحكم بحسب احتياجكِ",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = SoftTheme.TextSecondaryMuted,
+                                fontSize = 11.sp
+                            )
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Button(
+                        onClick = { showCustomizationDialog = true },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.MintTeal),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = "تخصيص ⚙️",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+        }
+
         // 📖✨ Spiritual & Quietude Reflection Section
         item {
             PregnancySpiritualCard()
@@ -664,15 +920,32 @@ fun PregnancyDashboardScreen(
         )
     }
 
-    // --- Baby Info Dialog (Gender and Name) ---
+    // --- Baby Info & Doctor Care Dialog (Gender, Name, Ultrasound Measurements, Doctor Appointment) ---
     if (showBabyInfoDialog) {
-        BabyInfoDialog(
+        val currentWeeks = progression?.weeks ?: 14
+        val activePregId = pregState?.id ?: 0
+        val currentPregFetalLogs = allFetalGrowthLogs.filter { it.pregnancyId == activePregId }
+
+        BabyAndDoctorCareDialog(
             initialGender = babyGenderInput,
             initialName = babyNameInput,
-            onDismiss = { showBabyInfoDialog = false },
-            onSave = { gender, name ->
+            currentWeekNumber = currentWeeks,
+            fetalGrowthLogs = currentPregFetalLogs,
+            appointments = appointments,
+            onDismissRequest = { showBabyInfoDialog = false },
+            onSaveBabyInfo = { gender, name ->
                 viewModel.updateBabyInfo(gender, name)
-                showBabyInfoDialog = false
+            },
+            onAddFetalGrowth = { week, weight, length, notes ->
+                viewModel.addFetalGrowthLog(week, weight, length, notes)
+                Toast.makeText(context, "تم حفظ قياسات السونار بنجاح 📏✨", Toast.LENGTH_SHORT).show()
+            },
+            onAddDoctorAppointment = { title, dateTime, doctor, notes ->
+                viewModel.addAppointment(title, dateTime, doctor, notes)
+                Toast.makeText(context, "تم حجز وتذكير موعد الطبيبة بنجاح 🏥✨", Toast.LENGTH_SHORT).show()
+            },
+            onToggleAppointment = { appt ->
+                viewModel.toggleAppointmentCompleted(appt)
             }
         )
     }
@@ -733,12 +1006,190 @@ fun PregnancyDashboardScreen(
     // --- Fetal Size Visualizer Dialog ---
     if (showFetalVisualizerDialog && progression != null) {
         progression?.let { prog ->
+            val activePregId = pregState?.id ?: 0
+            val latestFetalLog = allFetalGrowthLogs
+                .filter { it.pregnancyId == activePregId }
+                .maxByOrNull { it.pregnancyWeek }
+
             FetalSizeVisualizerDialog(
                 weekNumber = prog.weeks,
                 babySizeFruit = prog.comparisonName,
+                babyWeightGrams = if (latestFetalLog != null && latestFetalLog.weightGrams > 0) "${latestFetalLog.weightGrams.toInt()} جم (أسبوع ${latestFetalLog.pregnancyWeek})" else "",
+                babyLengthCm = if (latestFetalLog != null && latestFetalLog.lengthCm > 0) "${latestFetalLog.lengthCm} سم" else "",
+                isRealUltrasoundData = latestFetalLog != null && (latestFetalLog.weightGrams > 0 || latestFetalLog.lengthCm > 0),
                 onDismiss = { showFetalVisualizerDialog = false }
             )
         }
+    }
+
+    // --- Health Score Breakdown Dialog (تفاصيل مؤشر إنجاز اليوم) ---
+    if (showScoreBreakdownDialog) {
+        AlertDialog(
+            onDismissRequest = { showScoreBreakdownDialog = false },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("📊", fontSize = 22.sp)
+                    Text(
+                        text = "تفاصيل إنجاز اليوم ($dailyProgressScore%)",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = SoftTheme.TextPrimary
+                        )
+                    )
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Text(
+                        text = "يتم احتساب هذا المؤشر تلقائياً وبشكل حي بناءً على إنجاز أهدافكِ الصحية المسجلة لليوم:",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = SoftTheme.TextSecondaryMuted,
+                            lineHeight = 18.sp
+                        )
+                    )
+
+                    // 1. Water
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = SoftTheme.CardBg),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("💧 شرب الماء", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                Text("$todayWaterMl / $waterTarget مل", color = SoftTheme.EmeraldPrimary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+                            }
+                            LinearProgressIndicator(
+                                progress = { waterFraction },
+                                modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                                color = SoftTheme.EmeraldPrimary,
+                                trackColor = SoftTheme.CardBorder
+                            )
+                        }
+                    }
+
+                    // 2. Nutrition
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = SoftTheme.CardBg),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("🥗 السعرات والتغذية", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                Text("$todayCalories / $calorieTarget سعرة", color = SoftTheme.EmeraldPrimary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+                            }
+                            LinearProgressIndicator(
+                                progress = { caloriesFraction },
+                                modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                                color = SoftTheme.EmeraldPrimary,
+                                trackColor = SoftTheme.CardBorder
+                            )
+                        }
+                    }
+
+                    // 3. Sleep
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = SoftTheme.CardBg),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("🌙 النوم والراحة", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    if (sleepDurationHours > 0f) "${String.format(java.util.Locale.ENGLISH, "%.1f", sleepDurationHours)} ساعة" else "لم يُسجل اليوم",
+                                    color = SoftTheme.EmeraldPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                            LinearProgressIndicator(
+                                progress = { sleepFraction },
+                                modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                                color = SoftTheme.EmeraldPrimary,
+                                trackColor = SoftTheme.CardBorder
+                            )
+                        }
+                    }
+
+                    // 4. Activity / Steps
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = SoftTheme.CardBg),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("🚶‍♀️ خطوات النشاط", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                Text("$currentSteps / $stepGoal خطوة", color = SoftTheme.EmeraldPrimary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+                            }
+                            LinearProgressIndicator(
+                                progress = { stepsFraction },
+                                modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                                color = SoftTheme.EmeraldPrimary,
+                                trackColor = SoftTheme.CardBorder
+                            )
+                        }
+                    }
+
+                    // 5. Medications (only if user registered medications)
+                    if (activeMedications.isNotEmpty()) {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = SoftTheme.CardBg),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("💊 الأدوية المجدولة", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                    Text("$todayTakenMedCount / ${activeMedications.size} جرعة", color = SoftTheme.EmeraldPrimary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+                                }
+                                LinearProgressIndicator(
+                                    progress = { medsFraction ?: 0f },
+                                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                                    color = SoftTheme.EmeraldPrimary,
+                                    trackColor = SoftTheme.CardBorder
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showScoreBreakdownDialog = false }) {
+                    Text("إغلاق", fontWeight = FontWeight.Bold, color = SoftTheme.EmeraldPrimary)
+                }
+            }
+        )
     }
 }
 

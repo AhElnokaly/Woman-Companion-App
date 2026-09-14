@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.FetalGrowthLog
 import com.example.data.PregnancyEntity
-import com.example.ui.theme.SoftTheme
+import com.example.ui.SoftTheme
 import java.util.Calendar
 
 @Composable
@@ -38,9 +38,14 @@ fun MilestoneCelebrationCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 4.dp),
-            colors = CardDefaults.cardColors(containerColor = SoftTheme.PregnancyPurple.copy(alpha = 0.15f)),
+            colors = CardDefaults.cardColors(
+                containerColor = SoftTheme.CardBg
+            ),
             shape = RoundedCornerShape(20.dp),
-            border = BorderStroke(1.dp, SoftTheme.PregnancyPurple.copy(alpha = 0.5f))
+            border = BorderStroke(
+                1.dp,
+                SoftTheme.EmeraldPrimary.copy(alpha = 0.35f)
+            )
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
@@ -56,13 +61,18 @@ fun MilestoneCelebrationCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(icon, fontSize = 24.sp)
-                        Text(title, fontWeight = FontWeight.Bold, color = SoftTheme.PregnancyPurple, fontSize = 16.sp)
+                        Text(
+                            title,
+                            fontWeight = FontWeight.Bold,
+                            color = SoftTheme.EmeraldPrimary,
+                            fontSize = 16.sp
+                        )
                     }
                     IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Default.Close, contentDescription = "إغلاق", tint = SoftTheme.SoftGray)
+                        Icon(Icons.Default.Close, contentDescription = "إغلاق", tint = SoftTheme.TextSecondaryMuted)
                     }
                 }
-                Text(body, style = MaterialTheme.typography.bodyMedium, color = SoftTheme.TextWhite)
+                Text(body, style = MaterialTheme.typography.bodyMedium, color = SoftTheme.TextPrimary)
             }
         }
     }
@@ -104,9 +114,14 @@ fun PastPregnancyMemoryCard(
                 .fillMaxWidth()
                 .padding(vertical = 4.dp)
                 .testTag("past_pregnancy_memory_card"),
-            colors = CardDefaults.cardColors(containerColor = SoftTheme.PregnancyPurple.copy(alpha = 0.12f)),
+            colors = CardDefaults.cardColors(
+                containerColor = SoftTheme.CardBg
+            ),
             shape = RoundedCornerShape(20.dp),
-            border = BorderStroke(1.dp, SoftTheme.PregnancyPurple.copy(alpha = 0.35f))
+            border = BorderStroke(
+                1.dp,
+                SoftTheme.CardBorder
+            )
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
@@ -125,35 +140,38 @@ fun PastPregnancyMemoryCard(
                         Text(
                             "من فترة كانت هنا 🌸",
                             fontWeight = FontWeight.Bold,
-                            color = SoftTheme.PregnancyPurple,
+                            color = SoftTheme.EmeraldPrimary,
                             fontSize = 16.sp
                         )
                     }
                     IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Default.Close, contentDescription = "إغلاق", tint = SoftTheme.SoftGray)
+                        Icon(Icons.Default.Close, contentDescription = "إغلاق", tint = SoftTheme.TextSecondaryMuted)
                     }
                 }
                 val babyText = if (!pastPreg.babyName.isNullOrBlank()) " بـ (${pastPreg.babyName})" else ""
                 Text(
                     "في مثل هذا الوقت من السنة، كنتِ في الأسبوع $pastWeek من حملكِ السابق$babyText.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = SoftTheme.TextWhite
+                    color = SoftTheme.TextPrimary
                 )
                 if (matchedLog != null) {
                     Text(
                         "آخر قياس مسجّل لهذا الأسبوع: الوزن ${matchedLog.weightGrams} جرام، الطول ${matchedLog.lengthCm} سم.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = SoftTheme.MintTeal
+                        color = SoftTheme.EmeraldPrimary
                     )
                 }
 
                 Button(
                     onClick = onNavigateToHistory,
-                    colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.DeepSlate),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = SoftTheme.CanvasBg
+                    ),
+                    border = BorderStroke(1.dp, SoftTheme.CardBorder),
                     modifier = Modifier.fillMaxWidth().testTag("goto_past_pregnancy_history_btn"),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("عرض سجل وتفاصيل الأحمال السابقة 📜 ↗", color = SoftTheme.SoftPink, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("عرض سجل وتفاصيل الأحمال السابقة 📜 ↗", color = SoftTheme.EmeraldPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

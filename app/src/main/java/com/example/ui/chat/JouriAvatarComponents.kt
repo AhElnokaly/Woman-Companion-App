@@ -21,7 +21,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.example.ui.theme.SoftTheme
+import com.example.ui.SoftTheme
 
 enum class JouriExpressionState(val emoji: String, val label: String) {
     WARM_HAPPY("🌸", "سعيدة ودافئة"),

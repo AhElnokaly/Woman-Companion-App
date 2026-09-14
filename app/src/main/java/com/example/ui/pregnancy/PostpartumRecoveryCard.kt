@@ -15,7 +15,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.PregnancyEntity
-import com.example.ui.theme.SoftTheme
+import com.example.ui.SoftTheme
 import com.example.viewmodel.WomanCompanionViewModel
 
 @Composable
@@ -129,6 +129,16 @@ fun PostpartumRecoveryCard(
                         Text("+ ٢٥٠ مل", color = SoftTheme.DeepSlate, fontWeight = FontWeight.Bold, fontSize = 11.sp)
                     }
                 }
+            }
+
+            // Button to jump to nutrition for postpartum & lactation
+            Button(
+                onClick = onNavigateToNutrition,
+                colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.DeepSlate),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("🥗 خطة التغذية للتعافي وإدرار الحليب", color = SoftTheme.MintTeal, fontWeight = FontWeight.Bold)
             }
         }
     }

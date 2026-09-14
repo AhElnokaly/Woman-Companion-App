@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.example.ui.theme.SoftTheme
+import com.example.ui.SoftTheme
 
 /**
  * نافذة عرض ومشاركة التقرير الطبي الشامل لزيارة الطبيب (Doctor Visit Report)

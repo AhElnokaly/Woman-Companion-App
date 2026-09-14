@@ -96,10 +96,9 @@ class WomanCompanionAppWidget : AppWidgetProvider() {
     private suspend fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
         val views = RemoteViews(context.packageName, R.layout.app_widget_woman_companion)
 
-        // 1. Setup Open App Intent (Default Dashboard - Tab 0)
+        // 1. Setup Open App Intent
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra("target_tab", 0)
         }
         val openAppPendingIntent = PendingIntent.getActivity(
             context,
@@ -109,35 +108,8 @@ class WomanCompanionAppWidget : AppWidgetProvider() {
         )
         views.setOnClickPendingIntent(R.id.btn_open_app, openAppPendingIntent)
         views.setOnClickPendingIntent(R.id.widget_root, openAppPendingIntent)
-        views.setOnClickPendingIntent(R.id.card_status, openAppPendingIntent)
 
-        // 2. Setup Medication Intent (Symptoms & Meds - Tab 3)
-        val openMedsIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra("target_tab", 3)
-        }
-        val openMedsPendingIntent = PendingIntent.getActivity(
-            context,
-            103,
-            openMedsIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        views.setOnClickPendingIntent(R.id.card_medication, openMedsPendingIntent)
-
-        // 3. Setup Water Card Intent (Nutrition & Water - Tab 2)
-        val openWaterIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra("target_tab", 2)
-        }
-        val openWaterPendingIntent = PendingIntent.getActivity(
-            context,
-            104,
-            openWaterIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        views.setOnClickPendingIntent(R.id.card_water, openWaterPendingIntent)
-
-        // 4. Setup Quick Water Broadcast Intent (+250ml)
+        // 2. Setup Quick Water Intent
         val quickWaterIntent = Intent(context, WomanCompanionAppWidget::class.java).apply {
             action = ACTION_QUICK_ADD_WATER
         }
@@ -149,7 +121,7 @@ class WomanCompanionAppWidget : AppWidgetProvider() {
         )
         views.setOnClickPendingIntent(R.id.btn_quick_water, quickWaterPendingIntent)
 
-        // 5. Read Database & SharedPreferences
+        // 3. Read Database & SharedPreferences
         try {
             val sharedPrefs = context.getSharedPreferences("woman_companion_prefs", Context.MODE_PRIVATE)
             val db = AppDatabase.getDatabase(context.applicationContext)

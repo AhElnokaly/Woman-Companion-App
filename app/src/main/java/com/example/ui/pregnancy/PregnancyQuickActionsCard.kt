@@ -15,10 +15,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.SoftTheme
+import com.example.ui.SoftTheme
 
 @Composable
 fun PregnancyQuickActionsCard(
+    isPregnant: Boolean = true,
     isKickActive: Boolean,
     currentCount: Int,
     onAddWater: () -> Unit,
@@ -65,9 +66,9 @@ fun PregnancyQuickActionsCard(
                     )
                     if (!isExpanded) {
                         Text(
-                            text = if (isKickActive) "• جلسة ركلات نشطة ($currentCount)" else "• ماء، ضغط، تدوين",
+                            text = if (isPregnant && isKickActive) "• جلسة ركلات نشطة ($currentCount)" else "• ماء، ضغط، تدوين",
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (isKickActive) SoftTheme.MintTeal else SoftTheme.SoftGray,
+                            color = if (isPregnant && isKickActive) SoftTheme.MintTeal else SoftTheme.SoftGray,
                             fontSize = 11.sp
                         )
                     }
@@ -175,32 +176,34 @@ fun PregnancyQuickActionsCard(
                             }
                         }
 
-                        // Fetal Kicks Quick Log
-                        Button(
-                            onClick = onKickClick,
-                            colors = ButtonDefaults.buttonColors(containerColor = if (isKickActive) SoftTheme.SoftPink else SoftTheme.DeepSlate),
-                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier.weight(1.2f).height(64.dp).testTag("quick_fetal_kick_btn")
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
+                        // Fetal Kicks Quick Log (Shown only during pregnancy)
+                        if (isPregnant) {
+                            Button(
+                                onClick = onKickClick,
+                                colors = ButtonDefaults.buttonColors(containerColor = if (isKickActive) SoftTheme.SoftPink else SoftTheme.DeepSlate),
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                modifier = Modifier.weight(1.2f).height(64.dp).testTag("quick_fetal_kick_btn")
                             ) {
-                                if (isKickActive) {
-                                    Text("🦶 ركلة! ($currentCount)", fontWeight = FontWeight.ExtraBold, color = SoftTheme.DeepSlate, fontSize = 11.sp)
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text("احفظ", style = MaterialTheme.typography.bodySmall, color = SoftTheme.DeepSlate, fontSize = 9.sp, modifier = Modifier.clickable { onSaveKick() })
-                                } else {
-                                    Text("🤰 حركة", fontWeight = FontWeight.Bold, color = SoftTheme.MintTeal, fontSize = 13.sp)
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text("ركلات الجنين", style = MaterialTheme.typography.bodySmall, color = SoftTheme.TextWhite, fontSize = 10.sp)
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    if (isKickActive) {
+                                        Text("🦶 ركلة! ($currentCount)", fontWeight = FontWeight.ExtraBold, color = SoftTheme.DeepSlate, fontSize = 11.sp)
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text("احفظ", style = MaterialTheme.typography.bodySmall, color = SoftTheme.DeepSlate, fontSize = 9.sp, modifier = Modifier.clickable { onSaveKick() })
+                                    } else {
+                                        Text("🤰 حركة", fontWeight = FontWeight.Bold, color = SoftTheme.MintTeal, fontSize = 13.sp)
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text("ركلات الجنين", style = MaterialTheme.typography.bodySmall, color = SoftTheme.TextWhite, fontSize = 10.sp)
+                                    }
                                 }
                             }
                         }
                     }
 
-                    if (isKickActive) {
+                    if (isPregnant && isKickActive) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,

@@ -104,6 +104,7 @@ fun JouriChatDialog(
             text.contains("معونتي") || text.contains("المخزون") || text.contains("مشتريات") || text.contains("المقادير") -> "maonaty"
             text.contains("موعد") || text.contains("عيادة") || text.contains("حجز") || text.contains("زيارة") || text.contains("دكتورة") -> "appointments"
             text.contains("حاسبة الحمل") || text.contains("حاسبة الخصوبة") || text.contains("حاسبه") || text.contains("التبويض") -> "smart_conception"
+            text.contains("منع الحمل") || text.contains("وسيلة منع") || text.contains("حبوب منع") || text.contains("لولب") || text.contains("حقنة منع") -> "contraceptive"
             text.contains("علامات الخطر") || text.contains("أعراض الطوارئ") || text.contains("خطر") || text.contains("طوارئ") || text.contains("نزيف") -> "danger"
             else -> null
         }
@@ -166,10 +167,16 @@ fun JouriChatDialog(
                 "تمارين التنفس 🌸" to "كيف أمارس تمرين التنفس المهدئ لتقليل التوتر؟",
                 "وضعية النوم الآمنة 🤰" to "ما هي وضعيات النوم الصحية والآمنة أثناء الحمل والنفاس؟"
             ),
+            "تحليلات وتقارير 📈" to listOf(
+                "ارتباط الماء بالأعراض 💧" to "كيف يرتبط شرب الماء بنوبات الصداع والإرهاق والإمساك؟",
+                "النشاط وجودة النوم 🌙" to "ما هو ارتباط المشي والنشاط البدني بجودة النوم وعمقه؟",
+                "التقرير الطبي الشامل 📋" to "كيف أستخرج تقريراً صحياً شاملاً لمشاركته مع طبيبتي؟"
+            ),
             "أسئلة ❓" to listOf(
                 "المشي والحركة 🚶‍♀️" to "هل المشي والحركة مفيدان في حالتي؟",
                 "عداد ركلات الجنين 👶" to "كيف أحسب ركلات الجنين وتتبع حركته؟",
                 "قاعدة الولادة 5-1-1 ⏱️" to "ما هي قاعدة 5-1-1 لحساب الانقباضات والولادة؟",
+                "وسائل منع الحمل 🛡️" to "ما هي أنواع وسائل منع الحمل المتاحة وما يناسب فترة الرضاعة أو بعد التعافي؟",
                 "رخصة الصيام والعبادة 🌙" to "ما هي تفاصيل قضاء الصيام والعبادات ورخصة الإفطار؟"
             )
         )
@@ -583,6 +590,7 @@ fun JouriChatDialog(
                         "maonaty" -> ToolTarget("فتح نظام معونتي المنزلي 📦🛒", Icons.Default.Home, 4, "maonaty")
                         "appointments" -> ToolTarget("تسجيل وحفظ مواعيد الأطباء 📅", Icons.Default.DateRange, 4, "appointments")
                         "smart_conception" -> ToolTarget("فتح حاسبة الحمل والخصوبة الذكية 🧠", Icons.Default.Info, 4, "smart_conception")
+                        "contraceptive" -> ToolTarget("فتح سجل وسيلة منع الحمل 🛡️", Icons.Default.CheckCircle, 4, "contraceptive")
                         "danger" -> ToolTarget("فتح دليل علامات الخطر والطوارئ 🚨", Icons.Default.Warning, 4, "danger")
                         else -> ToolTarget("", Icons.Default.Build, 4, null)
                     }

@@ -3,7 +3,9 @@ package com.example.ui.pregnancy
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,7 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.Appointment
 import com.example.ui.formatGregorianDate
-import com.example.ui.theme.SoftTheme
+import com.example.ui.SoftTheme
 
 @Composable
 fun DailyVitalsSummaryCard(
@@ -48,7 +50,9 @@ fun DailyVitalsSummaryCard(
     Card(
         modifier = Modifier.fillMaxWidth().testTag("daily_vitals_summary_card"),
         colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
-        shape = RoundedCornerShape(24.dp)
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(1.dp, SoftTheme.CardBorder),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier.padding(18.dp),
@@ -193,6 +197,7 @@ fun DailyVitalsSummaryCard(
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(SoftTheme.DeepSlate)
+                                .border(1.dp, SoftTheme.CardBorder, RoundedCornerShape(12.dp))
                                 .clickable { onNavigateToTab(3) }
                                 .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -211,6 +216,7 @@ fun DailyVitalsSummaryCard(
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(SoftTheme.DeepSlate)
+                                .border(1.dp, SoftTheme.CardBorder, RoundedCornerShape(12.dp))
                                 .clickable { onNavigateToTab(3) }
                                 .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically,

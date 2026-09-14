@@ -751,7 +751,17 @@ object OfflineJouriEngine {
             )
         }
 
-        // 20. Ask for Spiritual / Islamic Worship Advice (أدعية وعبادات)
+        // 20. Health Analytics, Predictive Correlations & Executive Reports (التحليلات والتقارير التنبؤية)
+        if (normalizedInput.contains("تحليل") || normalizedInput.contains("تحليلات") || normalizedInput.contains("ارتباط") || normalizedInput.contains("تقرير طبي") || normalizedInput.contains("تقرير صحي") || normalizedInput.contains("علاقة الماء") || normalizedInput.contains("علاقة النوم") || normalizedInput.contains("تنبؤ")) {
+            return OfflineResponse(
+                replyText = "يا حبيبة قلبي، يسعدني جداً اهتمامكِ بالوعي الصحي الوقائي! 📈🔮\n\nلقد صممنا في تطبيق رفيقة المرأة **(لوحة التحليلات والتقارير التنبؤية الشاملة)** لترصد بدقة:\n1. **ارتباط شرب الماء بالأعراض 💧**: تكتشفين كيف يرتبط انخفاض الترطيب عن 1500 مل بنوبات الصداع والإرهاق والإمساك.\n2. **ارتباط النشاط بجودة النوم 🌙**: توضح لكِ بالأرقام كيف يزيد المشي (+4,500 خطوة) من دقائق النوم العميق بنسبة تتجاوز 15%.\n3. **التقرير الطبي الدوري الشامل 📋**: يجمع مؤشر التوازن الحيوي (Vitality Index) ومعدلات النوم والماء والأعراض في تقرير منسق يمكنكِ نسخه بلمسة واحدة ومشاركته مع طبيبتكِ المعالجة.\n\nيمكنكِ فتح هذه اللوحة مباشرة من قسم **الأدوات والمساعدة 🌸🛠️** أو عبر زر التحليلات في شاشة الدورة!",
+                actionType = "suggest_tool",
+                actionValue = "health_analytics",
+                isSpecificMatch = true
+            )
+        }
+
+        // 21. Ask for Spiritual / Islamic Worship Advice (أدعية وعبادات)
         if (normalizedInput.contains("دعاء") || normalizedInput.contains("أدعية") || normalizedInput.contains("صلاة") || normalizedInput.contains("قرآن") || normalizedInput.contains("عبادة") || normalizedInput.contains("أذكار") || normalizedInput.contains("ذكر") || normalizedInput.contains("استغفار") || normalizedInput.contains("ادعيه")) {
             val spiritualAdvice = if (phaseInfo.phaseName == "Menstruation") {
                 "أنتِ الآن في رخصة شرعية مباركة يا حبيبتي 🌙 وعلى الرغم من عدم وجوب الصلاة والصيام، فإن أبواب الذكر والعبادة كالتالي:\n" +

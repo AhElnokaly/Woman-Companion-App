@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.PeriodLog
 import com.example.viewmodel.CycleStats
-import com.example.ui.theme.SoftTheme
+import com.example.ui.SoftTheme
 import com.example.util.formatArabicDays
 
 @Composable
