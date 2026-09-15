@@ -15,5 +15,5 @@
 .cxx
 local.properties
 .env
-debug.keystore
+debug.keystore*
 .agent-state/
