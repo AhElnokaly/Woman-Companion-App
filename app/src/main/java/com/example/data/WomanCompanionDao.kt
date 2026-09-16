@@ -129,6 +129,9 @@ interface WomanCompanionDao {
     @Delete
     suspend fun deleteFetalKickSession(session: FetalKickSession)
 
+    @Query("DELETE FROM fetal_kick_sessions WHERE kickCount = 0")
+    suspend fun deleteZeroKickSessions()
+
     // --- Contractions ---
     @Query("SELECT * FROM contraction_logs ORDER BY startTime DESC")
     fun getAllContractionLogsFlow(): Flow<List<ContractionLog>>
@@ -261,6 +264,12 @@ interface WomanCompanionDao {
 
     @Query("UPDATE partner_messages SET isRead = 1 WHERE id = :id")
     suspend fun markPartnerMessageAsRead(id: Int)
+
+    @Delete
+    suspend fun deletePartnerMessage(msg: PartnerMessage)
+
+    @Query("DELETE FROM partner_messages WHERE id = :id")
+    suspend fun deletePartnerMessageById(id: Int)
 
     @Query("DELETE FROM partner_messages")
     suspend fun clearPartnerMessages()

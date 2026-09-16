@@ -8,6 +8,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,6 +22,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.FetalKickSession
 import com.example.viewmodel.WomanCompanionViewModel
 import java.util.Calendar
 
@@ -207,6 +210,25 @@ fun FetalKicksSubScreen(viewModel: WomanCompanionViewModel) {
     val currentCount by viewModel.currentKickCount.collectAsStateWithLifecycle()
     val history by viewModel.fetalKickSessionsState.collectAsStateWithLifecycle()
 
+    var sessionToEdit by remember { mutableStateOf<FetalKickSession?>(null) }
+    var sessionToDelete by remember { mutableStateOf<FetalKickSession?>(null) }
+    var elapsedSeconds by remember { mutableLongStateOf(0L) }
+
+    // Real-time timer during active kick session
+    LaunchedEffect(activeStart) {
+        if (activeStart != null) {
+            while (true) {
+                val now = System.currentTimeMillis()
+                elapsedSeconds = maxOf(0L, (now - activeStart!!) / 1000)
+                kotlinx.coroutines.delay(1000)
+            }
+        } else {
+            elapsedSeconds = 0L
+        }
+    }
+
+    val zeroCountSessions = remember(history) { history.count { it.kickCount == 0 } }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -215,9 +237,9 @@ fun FetalKicksSubScreen(viewModel: WomanCompanionViewModel) {
         verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("عداد حركات وركلات الجنين 👶", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite)
+        Text("عداد حركات وركلات الجنين 👶🦶", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite)
         Text(
-            "توصي الهيئات الصحية بعد عشر ركلات أو حركات واضحة خلال جلسة تتبع في أوقات نشاط الجنين المعتادة.",
+            "توصي الهيئات الطبية بملاحظة حركات الجنين في أوقات نشاطه. سجلي كل ركلة بضغطة واحدة حتى تصلي إلى 10 ركلات للاطمئنان الكامل.",
             color = SoftTheme.SoftGray,
             style = MaterialTheme.typography.bodySmall,
             textAlign = TextAlign.Center
@@ -225,39 +247,64 @@ fun FetalKicksSubScreen(viewModel: WomanCompanionViewModel) {
 
         if (activeStart == null) {
             Button(
-                onClick = { viewModel.startFetalKickSession() },
-                colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
-                modifier = Modifier.fillMaxWidth().height(56.dp).testTag("start_kick_session_btn")
+                onClick = { viewModel.recordKickFromDashboard() },
+                colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.PrimaryPink),
+                modifier = Modifier.fillMaxWidth().height(56.dp).testTag("start_kick_session_btn"),
+                shape = RoundedCornerShape(16.dp)
             ) {
-                Text("بدء جلسة عد جديدة")
+                Text("بدء جلسة عد جديدة (تسجيل الركلة الأولى 🦶)", fontWeight = FontWeight.Bold, fontSize = 15.sp)
             }
         } else {
             Card(
                 colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
                 shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, SoftTheme.MintTeal.copy(alpha = 0.4f)),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
                     modifier = Modifier.padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    Text("الجلسة نشطة ومستمرة", color = SoftTheme.MintTeal, fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = SoftTheme.MintTeal.copy(alpha = 0.15f)
+                        ) {
+                            Text(
+                                text = "⏱️ المدة: ${elapsedSeconds / 60} د و ${elapsedSeconds % 60} ث",
+                                color = SoftTheme.MintTeal,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                        Text("الجلسة نشطة ومستمرة 🌸", color = SoftTheme.SoftPink, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
 
                     Text(
                         text = "$currentCount",
                         style = MaterialTheme.typography.displayLarge,
                         color = SoftTheme.TextWhite,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.ExtraBold
                     )
+                    Text("ركلات مسجلة في هذه الجلسة", color = SoftTheme.SoftGray, style = MaterialTheme.typography.bodySmall)
 
                     Button(
                         onClick = { viewModel.incrementKickCount() },
-                        colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.SoftPink),
-                        modifier = Modifier.size(100.dp).testTag("increment_kick_btn"),
-                        shape = CircleShape
+                        colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.PrimaryPink),
+                        modifier = Modifier.size(110.dp).testTag("increment_kick_btn"),
+                        shape = CircleShape,
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp)
                     ) {
-                        Text("ركلة! 🦶", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("🦶", fontSize = 28.sp)
+                            Text("+١ ركلة", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite)
+                        }
                     }
 
                     Row(
@@ -266,47 +313,324 @@ fun FetalKicksSubScreen(viewModel: WomanCompanionViewModel) {
                     ) {
                         OutlinedButton(
                             onClick = { viewModel.cancelFetalKickSession() },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = SoftTheme.RedDanger),
+                            border = BorderStroke(1.dp, SoftTheme.RedDanger.copy(alpha = 0.5f)),
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("إلغاء", color = SoftTheme.RedDanger)
+                            Text("إلغاء ❌")
                         }
                         Button(
                             onClick = { viewModel.saveFetalKickSession() },
                             colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.MintTeal),
-                            modifier = Modifier.weight(1f)
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1.3f)
                         ) {
-                            Text("حفظ الجلسة")
+                            Text("حفظ الجلسة ($currentCount) 🏁", fontWeight = FontWeight.Bold, color = SoftTheme.DeepSlate)
                         }
                     }
                 }
             }
         }
 
-        Text("سجل جلسات الحركة السابقة 📖", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite, modifier = Modifier.align(Alignment.Start))
-
-        if (history.isEmpty()) {
-            Text("لا توجد جلسات مسجلة بعد.", color = SoftTheme.SoftGray)
-        } else {
-            history.forEach { ses ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate)
+        // Section header and Zero Clean Button
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("سجل جلسات الحركة السابقة 📖", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite, style = MaterialTheme.typography.titleMedium)
+            if (zeroCountSessions > 0) {
+                Surface(
+                    onClick = { viewModel.deleteZeroKickSessions() },
+                    shape = RoundedCornerShape(10.dp),
+                    color = SoftTheme.RedDanger.copy(alpha = 0.15f),
+                    border = BorderStroke(1.dp, SoftTheme.RedDanger.copy(alpha = 0.35f))
                 ) {
                     Row(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Column {
-                            Text("الركلات: ${ses.kickCount}", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite)
-                            Text("المدة: ${ses.durationSeconds / 60} دقيقة و ${ses.durationSeconds % 60} ثانية", style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftGray)
+                        Text("🧹", fontSize = 11.sp)
+                        Text(
+                            text = "تنظيف ($zeroCountSessions فارغة)",
+                            color = SoftTheme.RedDanger,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+            }
+        }
+
+        if (history.isEmpty()) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = SoftTheme.CardSlate.copy(alpha = 0.6f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("👶", fontSize = 32.sp)
+                    Text("لا توجد جلسات مسجلة بعد", color = SoftTheme.TextWhite, fontWeight = FontWeight.Bold)
+                    Text("ابدئي جلستك الأولى عند شعورك بأول ركلة لطفلكِ الحبيب.", color = SoftTheme.SoftGray, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
+                }
+            }
+        } else {
+            history.forEach { ses ->
+                val isOptimal = ses.kickCount >= 10
+                val isMedium = ses.kickCount in 4..9
+                val isZero = ses.kickCount == 0
+
+                val badgeColor = when {
+                    isOptimal -> SoftTheme.MintTeal
+                    isMedium -> SoftTheme.GoldFasting
+                    isZero -> SoftTheme.RedDanger
+                    else -> SoftTheme.SoftPink
+                }
+
+                val badgeText = when {
+                    isOptimal -> "حركة ممتازة ومطمئنة ✨"
+                    isMedium -> "نشاط جيد 💛"
+                    isZero -> "جلسة فارغة (٠)"
+                    else -> "تتبع قصير"
+                }
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = SoftTheme.CardSlate),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, badgeColor.copy(alpha = 0.3f))
+                ) {
+                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = badgeColor.copy(alpha = 0.15f)
+                            ) {
+                                Text(
+                                    text = badgeText,
+                                    color = badgeColor,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+                            Text(
+                                text = formatGregorianDate(ses.startTime),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = SoftTheme.SoftPink,
+                                fontWeight = FontWeight.Medium
+                            )
                         }
-                        Text(formatGregorianDate(ses.startTime), style = MaterialTheme.typography.bodySmall, color = SoftTheme.SoftPink)
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("🦶", fontSize = 22.sp)
+                                Column {
+                                    Text(
+                                        text = "${ses.kickCount} ركلات",
+                                        fontWeight = FontWeight.Bold,
+                                        color = SoftTheme.TextWhite,
+                                        fontSize = 16.sp
+                                    )
+                                    Text(
+                                        text = "المدة: ${ses.durationSeconds / 60} دقيقة و ${ses.durationSeconds % 60} ثانية",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = SoftTheme.SoftGray,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                IconButton(
+                                    onClick = { sessionToEdit = ses },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "تعديل الجلسة",
+                                        tint = SoftTheme.MintTeal,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { sessionToDelete = ses },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "حذف الجلسة",
+                                        tint = SoftTheme.RedDanger,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
         Spacer(modifier = Modifier.height(80.dp))
     }
+
+    // Delete Confirmation Dialog
+    sessionToDelete?.let { session ->
+        AlertDialog(
+            onDismissRequest = { sessionToDelete = null },
+            title = { Text("حذف الجلسة؟", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite) },
+            text = {
+                Text(
+                    "هل أنتِ متأكدة من حذف جلسة الركلات (${session.kickCount} ركلات بتاريخ ${formatGregorianDate(session.startTime)})؟",
+                    color = SoftTheme.SoftGray
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteFetalKickSession(session)
+                        sessionToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.RedDanger)
+                ) {
+                    Text("حذف")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { sessionToDelete = null }) {
+                    Text("إلغاء", color = SoftTheme.TextWhite)
+                }
+            },
+            containerColor = SoftTheme.CardSlate
+        )
+    }
+
+    // Edit Kick Session Dialog
+    sessionToEdit?.let { session ->
+        EditFetalKickDialog(
+            session = session,
+            onDismiss = { sessionToEdit = null },
+            onConfirm = { updated ->
+                viewModel.updateFetalKickSession(updated)
+                sessionToEdit = null
+            }
+        )
+    }
+}
+
+@Composable
+fun EditFetalKickDialog(
+    session: FetalKickSession,
+    onDismiss: () -> Unit,
+    onConfirm: (FetalKickSession) -> Unit
+) {
+    var count by remember { mutableIntStateOf(session.kickCount) }
+    var durationMinutes by remember { mutableLongStateOf(session.durationSeconds / 60) }
+    var durationSecondsRemainder by remember { mutableLongStateOf(session.durationSeconds % 60) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("تعديل جلسة الركلات ✏️", fontWeight = FontWeight.Bold, color = SoftTheme.TextWhite)
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text("تعديل عدد الركلات:", color = SoftTheme.SoftGray, style = MaterialTheme.typography.bodySmall)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilledIconButton(
+                        onClick = { if (count > 0) count -= 1 },
+                        colors = IconButtonDefaults.filledIconButtonColors(containerColor = SoftTheme.DeepSlate)
+                    ) {
+                        Text("-", color = SoftTheme.TextWhite, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                    }
+
+                    Text(
+                        text = "$count ركلة",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = SoftTheme.SoftPink
+                    )
+
+                    FilledIconButton(
+                        onClick = { count += 1 },
+                        colors = IconButtonDefaults.filledIconButtonColors(containerColor = SoftTheme.PrimaryPink)
+                    ) {
+                        Text("+", color = SoftTheme.TextWhite, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                    }
+                }
+
+                Text("تعديل مدة الجلسة (دقائق):", color = SoftTheme.SoftGray, style = MaterialTheme.typography.bodySmall)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilledIconButton(
+                        onClick = { if (durationMinutes > 0) durationMinutes -= 1 },
+                        colors = IconButtonDefaults.filledIconButtonColors(containerColor = SoftTheme.DeepSlate)
+                    ) {
+                        Text("-", color = SoftTheme.TextWhite, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                    }
+
+                    Text(
+                        text = "$durationMinutes دقيقة",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = SoftTheme.MintTeal
+                    )
+
+                    FilledIconButton(
+                        onClick = { durationMinutes += 1 },
+                        colors = IconButtonDefaults.filledIconButtonColors(containerColor = SoftTheme.MintTeal)
+                    ) {
+                        Text("+", color = SoftTheme.DeepSlate, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val totalSec = maxOf(1L, durationMinutes * 60 + durationSecondsRemainder)
+                    onConfirm(
+                        session.copy(
+                            kickCount = count,
+                            durationSeconds = totalSec,
+                            endTime = session.startTime + (totalSec * 1000)
+                        )
+                    )
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = SoftTheme.MintTeal)
+            ) {
+                Text("حفظ التعديل", color = SoftTheme.DeepSlate, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("إلغاء", color = SoftTheme.TextWhite)
+            }
+        },
+        containerColor = SoftTheme.CardSlate
+    )
 }
 
 // --- Contractions Sub-screen ---

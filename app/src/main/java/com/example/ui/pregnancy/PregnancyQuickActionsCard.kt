@@ -180,7 +180,9 @@ fun PregnancyQuickActionsCard(
                         if (isPregnant) {
                             Button(
                                 onClick = onKickClick,
-                                colors = ButtonDefaults.buttonColors(containerColor = if (isKickActive) SoftTheme.SoftPink else SoftTheme.DeepSlate),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isKickActive) SoftTheme.PrimaryPink else SoftTheme.DeepSlate
+                                ),
                                 contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
                                 shape = RoundedCornerShape(16.dp),
                                 modifier = Modifier.weight(1.2f).height(64.dp).testTag("quick_fetal_kick_btn")
@@ -190,9 +192,9 @@ fun PregnancyQuickActionsCard(
                                     verticalArrangement = Arrangement.Center
                                 ) {
                                     if (isKickActive) {
-                                        Text("🦶 ركلة! ($currentCount)", fontWeight = FontWeight.ExtraBold, color = SoftTheme.DeepSlate, fontSize = 11.sp)
+                                        Text("🦶 ركلة! ($currentCount)", fontWeight = FontWeight.ExtraBold, color = SoftTheme.TextWhite, fontSize = 12.sp)
                                         Spacer(modifier = Modifier.height(2.dp))
-                                        Text("احفظ", style = MaterialTheme.typography.bodySmall, color = SoftTheme.DeepSlate, fontSize = 9.sp, modifier = Modifier.clickable { onSaveKick() })
+                                        Text("+١ اضغطي للزيادة", style = MaterialTheme.typography.bodySmall, color = SoftTheme.TextWhite.copy(alpha = 0.9f), fontSize = 10.sp)
                                     } else {
                                         Text("🤰 حركة", fontWeight = FontWeight.Bold, color = SoftTheme.MintTeal, fontSize = 13.sp)
                                         Spacer(modifier = Modifier.height(2.dp))
@@ -204,27 +206,51 @@ fun PregnancyQuickActionsCard(
                     }
 
                     if (isPregnant && isKickActive) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = SoftTheme.SoftPink.copy(alpha = 0.12f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, SoftTheme.SoftPink.copy(alpha = 0.3f)),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("جلسة عد حركة الجنين نشطة حالياً ✨", color = SoftTheme.SoftPink, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 Text(
-                                    text = "إلغاء ❌",
-                                    color = SoftTheme.RedDanger,
+                                    text = "✨ الجلسة نشطة ($currentCount ركلات)",
+                                    color = SoftTheme.DeepPink,
                                     style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.clickable { onCancelKick() }
+                                    fontWeight = FontWeight.Bold
                                 )
-                                Text(
-                                    text = "حفظ وحساب 🏁",
-                                    color = SoftTheme.MintTeal,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.clickable { onSaveKick() }
-                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Surface(
+                                        onClick = onCancelKick,
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = SoftTheme.RedDanger.copy(alpha = 0.15f)
+                                    ) {
+                                        Text(
+                                            text = "إلغاء ❌",
+                                            color = SoftTheme.RedDanger,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                    Surface(
+                                        onClick = onSaveKick,
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = SoftTheme.MintTeal.copy(alpha = 0.2f)
+                                    ) {
+                                        Text(
+                                            text = "حفظ وإنهاء 🏁",
+                                            color = SoftTheme.MintTeal,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

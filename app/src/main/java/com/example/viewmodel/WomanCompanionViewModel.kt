@@ -603,8 +603,20 @@ class WomanCompanionViewModel(
         _currentKickCount.value = 0
     }
 
+    fun recordKickFromDashboard() {
+        if (_currentKickSessionStart.value == null) {
+            _currentKickSessionStart.value = getCurrentTime()
+            _currentKickCount.value = 1
+        } else {
+            _currentKickCount.value += 1
+        }
+    }
+
     fun incrementKickCount() {
-        if (_currentKickSessionStart.value != null) {
+        if (_currentKickSessionStart.value == null) {
+            _currentKickSessionStart.value = getCurrentTime()
+            _currentKickCount.value = 1
+        } else {
             _currentKickCount.value += 1
         }
     }
@@ -613,25 +625,46 @@ class WomanCompanionViewModel(
         val start = _currentKickSessionStart.value ?: return
         val end = getCurrentTime()
         val count = _currentKickCount.value
-        val duration = (end - start) / 1000
+        val duration = maxOf(1L, (end - start) / 1000)
 
-        viewModelScope.launch(coroutineExceptionHandler) {
-            repository.insertFetalKickSession(
-                FetalKickSession(
-                    startTime = start,
-                    endTime = end,
-                    kickCount = count,
-                    durationSeconds = duration
+        _currentKickSessionStart.value = null
+        _currentKickCount.value = 0
+
+        if (count > 0) {
+            viewModelScope.launch(coroutineExceptionHandler) {
+                repository.insertFetalKickSession(
+                    FetalKickSession(
+                        startTime = start,
+                        endTime = end,
+                        kickCount = count,
+                        durationSeconds = duration
+                    )
                 )
-            )
-            _currentKickSessionStart.value = null
-            _currentKickCount.value = 0
+            }
         }
     }
 
     fun cancelFetalKickSession() {
         _currentKickSessionStart.value = null
         _currentKickCount.value = 0
+    }
+
+    fun deleteFetalKickSession(session: FetalKickSession) {
+        viewModelScope.launch(coroutineExceptionHandler) {
+            repository.deleteFetalKickSession(session)
+        }
+    }
+
+    fun deleteZeroKickSessions() {
+        viewModelScope.launch(coroutineExceptionHandler) {
+            repository.deleteZeroKickSessions()
+        }
+    }
+
+    fun updateFetalKickSession(session: FetalKickSession) {
+        viewModelScope.launch(coroutineExceptionHandler) {
+            repository.insertFetalKickSession(session)
+        }
     }
 
     // --- Active Contraction Tracker State ---
@@ -1290,6 +1323,24 @@ class WomanCompanionViewModel(
     fun markPartnerMessageAsRead(id: Int) {
         viewModelScope.launch(coroutineExceptionHandler) {
             repository.markPartnerMessageAsRead(id)
+        }
+    }
+
+    fun deletePartnerMessage(msg: PartnerMessage) {
+        viewModelScope.launch(coroutineExceptionHandler) {
+            repository.deletePartnerMessage(msg)
+        }
+    }
+
+    fun deletePartnerMessageById(id: Int) {
+        viewModelScope.launch(coroutineExceptionHandler) {
+            repository.deletePartnerMessageById(id)
+        }
+    }
+
+    fun clearAllPartnerMessages() {
+        viewModelScope.launch(coroutineExceptionHandler) {
+            repository.clearPartnerMessages()
         }
     }
 

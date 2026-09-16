@@ -58,6 +58,7 @@ class WomanCompanionRepository(private val dao: WomanCompanionDao) {
     val allFetalKickSessionsFlow: Flow<List<FetalKickSession>> = dao.getAllFetalKickSessionsFlow()
     suspend fun insertFetalKickSession(session: FetalKickSession) = dao.insertFetalKickSession(session)
     suspend fun deleteFetalKickSession(session: FetalKickSession) = dao.deleteFetalKickSession(session)
+    suspend fun deleteZeroKickSessions() = dao.deleteZeroKickSessions()
 
     // --- Contractions ---
     val allContractionLogsFlow: Flow<List<ContractionLog>> = dao.getAllContractionLogsFlow()
@@ -105,6 +106,8 @@ class WomanCompanionRepository(private val dao: WomanCompanionDao) {
     val allPartnerMessagesFlow: Flow<List<PartnerMessage>> = dao.getAllPartnerMessagesFlow()
     suspend fun insertPartnerMessage(msg: PartnerMessage) = dao.insertPartnerMessage(msg)
     suspend fun markPartnerMessageAsRead(id: Int) = dao.markPartnerMessageAsRead(id)
+    suspend fun deletePartnerMessage(msg: PartnerMessage) = dao.deletePartnerMessage(msg)
+    suspend fun deletePartnerMessageById(id: Int) = dao.deletePartnerMessageById(id)
     suspend fun clearPartnerMessages() = dao.clearPartnerMessages()
 
     // --- سجل الوحم والاشتهاء (Pregnancy Cravings Log) ---

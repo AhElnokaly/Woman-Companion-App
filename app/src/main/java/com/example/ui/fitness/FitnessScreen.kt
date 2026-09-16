@@ -5,9 +5,11 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -240,7 +242,7 @@ fun FitnessScreen(
                 .background(SoftTheme.DeepSlate)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(bottom = 90.dp)
+            contentPadding = PaddingValues(bottom = 150.dp)
         ) {
             // Screen Header title
             item {
@@ -419,15 +421,17 @@ fun FitnessScreen(
                 // Trimester filter pills (only visible when in pregnancy tab)
                 if (activeTab == "pregnancy") {
                     item {
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
                                 text = "تصفية التمارين حسب ثلث الحمل:",
                                 color = SoftTheme.SoftGray,
-                                fontSize = 11.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 listOf(
@@ -437,29 +441,19 @@ fun FitnessScreen(
                                     3 to "الثلث الثالث 🌸"
                                 ).forEach { (triIndex, label) ->
                                     val isSelected = selectedTrimesterFilter == triIndex
-                                    Box(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .background(
-                                                if (isSelected) Color(0xFF38B2AC).copy(alpha = 0.2f)
-                                                else Color(0xFF1B222E)
-                                            )
-                                            .border(
-                                                width = 1.dp,
-                                                color = if (isSelected) Color(0xFF38B2AC) else Color.Transparent,
-                                                shape = RoundedCornerShape(10.dp)
-                                            )
-                                            .clickable { selectedTrimesterFilter = triIndex }
-                                            .padding(vertical = 8.dp),
-                                        contentAlignment = Alignment.Center
+                                    Surface(
+                                        onClick = { selectedTrimesterFilter = triIndex },
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = if (isSelected) Color(0xFF38B2AC) else Color(0xFF1B222E),
+                                        border = BorderStroke(1.dp, if (isSelected) Color(0xFF38B2AC) else Color(0xFF2A3444)),
+                                        modifier = Modifier.testTag("trimester_filter_$triIndex")
                                     ) {
                                         Text(
                                             text = label,
-                                            color = if (isSelected) Color(0xFF38B2AC) else SoftTheme.TextWhite,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                            fontSize = 10.sp,
-                                            textAlign = TextAlign.Center
+                                            color = if (isSelected) Color(0xFF141921) else SoftTheme.TextWhite,
+                                            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
+                                            fontSize = 12.sp,
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp)
                                         )
                                     }
                                 }

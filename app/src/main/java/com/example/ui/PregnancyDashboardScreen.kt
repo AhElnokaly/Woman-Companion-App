@@ -632,11 +632,7 @@ fun PregnancyDashboardScreen(
                     onOpenJournalDialog = { showAddJournalDialog = true },
                     onOpenBreathingDialog = { showBreathingDialog = true },
                     onKickClick = {
-                        if (isKickActive) {
-                            viewModel.incrementKickCount()
-                        } else {
-                            viewModel.startFetalKickSession()
-                        }
+                        viewModel.recordKickFromDashboard()
                     },
                     onSaveKick = { viewModel.saveFetalKickSession() },
                     onCancelKick = { viewModel.cancelFetalKickSession() }
